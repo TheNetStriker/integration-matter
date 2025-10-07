@@ -1,0 +1,55 @@
+{
+  "name": "integration-matter",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Matter integration for Unfolded Circle Remote",
+  "module": "dist/driver.js",
+  "dependencies": {
+    "@matter/main": "v0.15.5",
+    "@matter/nodejs": "v0.15.5",
+    "@project-chip/matter.js": "v0.15.5",
+    "@unfoldedcircle/integration-api": "^0.3.0",
+    "ioredis": "^5.8.0",
+    "valkeyrie": "^0.7.1"
+  },
+  "devDependencies": {
+    "@ava/typescript": "^5.0.0",
+    "@types/debug": "^4.1.12",
+    "@types/node": "^22.18.8",
+    "@types/ws": "^8.5.12",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "ava": "^6.1.3",
+    "copyfiles": "^2.4.1",
+    "esbuild": "^0.25.9",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-semistandard": "^17.0.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-promise": "^6.6.0",
+    "prettier": "^3.3.3",
+    "ts-node": "^10.9.2",
+    "typescript": "5.5.x"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "code-check": "prettier --check . && eslint .",
+    "lint": "eslint --fix",
+    "build": "tsc && copyfiles \"./src/**/*.json\" dist/",
+    "test": "npm run build && ava dist/test/**/*.js"
+  },
+  "keywords": [
+    "uc",
+    "unfoldedcircle",
+    "remotetwo",
+    "smartremote",
+    "api",
+    "integration"
+  ],
+  "author": "David Masshardt",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.16.0"
+  }
+}
