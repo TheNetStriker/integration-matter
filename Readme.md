@@ -1,10 +1,12 @@
 # Matter integration for Unfolded Circle Remote Two and 3
 
-The driver lets you control home automation systems using the Matter protocol on the Unfolded Circle Remote Two and 3.
+This integration lets you control home automation systems using the Matter protocol on the Unfolded Circle Remote Two and 3.
 
 This integration uses the excellent [matter-js](https://github.com/matter-js/matter.js) library in the background.
 
-The idea behind this integration is that with this one integration all home automation systems that support Matter can be controlled. So there does not have to be a separate integration for every system. I also found out that the Matter protocol is very effecient because it is using the UDP protocol. So there is no need to open a TCP connection every time the remote wakes up. You can basically use the commands of this implementation as soon as the display of the remote turns on if the integration is running directly on the remote.
+The idea behind this project is that with this one integration all home automation systems that support Matter can be controlled. So there does not have to be a separate integration for every system.
+
+I also found out that the Matter protocol is very efficient because it is using the UDP protocol. So there is no need to open a TCP connection every time the remote wakes up. You can basically use the commands of this implementation as soon as the display of the remote turns on if the integration is running directly on the remote. So maybe this would also be interesting for HomeAssistant users who are using the official HomeAssistant integration.
 
 This integration is currently only tested with OpenHAB 5.0 and the HomeAssistant Matter Hub because I don't have any other Matter compatible home automation systems to test this. Also currently only a small selection of device types is supported.
 
