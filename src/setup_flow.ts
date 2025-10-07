@@ -32,7 +32,7 @@ async function userInputDriverConfig(): Promise<uc.RequestUserInput> {
       field: {
         text: {
           value: config.lightTransitionTime.toString(),
-          regex: `^(?:6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]?\\d{1,4}|0)$`
+          regex: "^(?:6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]?\\d{1,4}|0)$"
         }
       }
     },
@@ -40,7 +40,7 @@ async function userInputDriverConfig(): Promise<uc.RequestUserInput> {
       // max 32 characters
       id: "matterFabricLabel",
       label: { en: "Matter fabric label", de: "Matter fabric label" },
-      field: { text: { value: config.matterFabricLabel, regex: `^[A-Za-z0-9 ]{1,32}$` } }
+      field: { text: { value: config.matterFabricLabel, regex: "^[A-Za-z0-9 ]{1,32}$" } }
     },
     {
       field: {
@@ -99,7 +99,7 @@ function userInputMatterSettings(): uc.RequestUserInput {
     {
       id: "pairingCode",
       label: { en: "Matter pairing code", de: "Matter pairing code" },
-      field: { text: { value: "", regex: `^\d{11,21}$` } }
+      field: { text: { value: "", regex: "^\\d{11,21}$" } }
     }
   ]);
 }
