@@ -6,6 +6,7 @@ import { MatterDevice } from "./matter_device.js";
 import { driver } from "./driver.js";
 import { driverConfig } from "./config.js";
 import { Descriptor } from "@matter/main/clusters";
+import { MatterValueConverters } from "./matter_value_converters.js";
 
 interface MatterBridgeDevices {
   bridge: matter.MatterBridge;
@@ -311,7 +312,7 @@ const lightCmdHandler: uc.CommandHandler = async function (
 
         if (matterDevice.levelControlClient && typeof params?.brightness === "number") {
           await matterDevice.levelControlClient.moveToLevel({
-            level: matterDevice.ucLevelToMatter(params.brightness),
+            level: MatterValueConverters.ucLevelToMatter(params.brightness),
             transitionTime: driverConfig.get().lightTransitionTime,
             optionsMask: {},
             optionsOverride: {}
@@ -321,7 +322,7 @@ const lightCmdHandler: uc.CommandHandler = async function (
 
         if (matterDevice.colorControlClient && typeof params?.color_temperature === "number") {
           await matterDevice.colorControlClient.moveToColorTemperature({
-            colorTemperatureMireds: matterDevice.percentToMired(params.color_temperature),
+            colorTemperatureMireds: MatterValueConverters.ucPercentToMired(params.color_temperature),
             transitionTime: driverConfig.get().lightTransitionTime,
             optionsMask: {},
             optionsOverride: {}
@@ -335,8 +336,8 @@ const lightCmdHandler: uc.CommandHandler = async function (
           typeof params?.saturation === "number"
         ) {
           await matterDevice.colorControlClient.moveToHueAndSaturation({
-            hue: matterDevice.ucHueToMatter(params.hue),
-            saturation: matterDevice.ucSaturationToMatter(params.saturation),
+            hue: MatterValueConverters.ucHueToMatter(params.hue),
+            saturation: MatterValueConverters.ucSaturationToMatter(params.saturation),
             transitionTime: driverConfig.get().lightTransitionTime,
             optionsMask: {},
             optionsOverride: {}

@@ -8,6 +8,7 @@ import log from "./loggers.js";
 import { driver } from "./driver.js";
 import { MatterBridge } from "./matter_controller.js";
 import { lightCmdHandler, switchCmdHandler } from "./matter_device_handlers.js";
+import { MatterValueConverters } from "./matter_value_converters.js";
 
 enum MatterDeviceType {
   PowerSource = 17,
@@ -120,78 +121,6 @@ export class MatterDevice {
     }
   }
 
-  percentToMired(value: number) {
-    // Begrenzen auf 0–100
-    value = Math.min(100, Math.max(0, value));
-
-    const minKelvin = 2000; // warm
-    const maxKelvin = 6500; // kalt
-
-    // Linear von 0–100 auf Kelvin umrechnen
-    const kelvin = maxKelvin - (value / 100) * (maxKelvin - minKelvin);
-
-    // Kelvin -> Mired
-    return Math.round(1000000 / kelvin);
-  }
-
-  miredToPercent(mired: number | undefined): number | uc.LightStates {
-    if (mired == undefined) return uc.LightStates.Unknown;
-
-    const minKelvin = 2000; // warm
-    const maxKelvin = 6500; // kalt
-
-    // zurück zu Kelvin
-    const kelvin = 1_000_000 / mired;
-
-    // zurück zu Prozent
-    let percent = ((maxKelvin - kelvin) / (maxKelvin - minKelvin)) * 100;
-
-    // Begrenzen auf 0–100
-    percent = Math.min(100, Math.max(0, percent));
-
-    return Math.round(percent);
-  }
-
-  matterHueToUc(value: number | undefined) {
-    return value == undefined ? uc.LightStates.Unknown : Math.round((value / 254) * 360);
-  }
-
-  ucHueToMatter(value: number) {
-    return Math.round((value / 360) * 254);
-  }
-
-  matterSaturationToUc(value: number | undefined) {
-    return value == undefined ? uc.LightStates.Unknown : value + 1;
-  }
-
-  ucSaturationToMatter(value: number) {
-    return value - 1;
-  }
-
-  matterLevelToUc(value: number | null | undefined) {
-    return value == null || value == undefined ? uc.LightStates.Unknown : value + 1;
-  }
-
-  matterLevelToUcSwitchState(value: number | null | undefined) {
-    return value == null || value == undefined
-      ? uc.LightStates.Unknown
-      : value > 0
-        ? uc.SwitchStates.On
-        : uc.SwitchStates.Off;
-  }
-
-  ucLevelToMatter(value: number) {
-    return value - 1;
-  }
-
-  matterOnOffToUcSwitchState(value: boolean | undefined) {
-    return value === true ? uc.SwitchStates.On : value === false ? uc.SwitchStates.Off : uc.SwitchStates.Unknown;
-  }
-
-  matterOnOffToUcLightState(value: boolean | undefined) {
-    return value === true ? uc.LightStates.On : value === false ? uc.LightStates.Off : uc.LightStates.Unknown;
-  }
-
   addAttributeListeners() {
     if (!this.entityId) {
       throw new Error("MatterDevice not initialized");
@@ -205,7 +134,7 @@ export class MatterDevice {
       if (this.colorControlClient) {
         this.hueListener = (value: number) => {
           this.updateEntityAttributes({
-            [uc.LightAttributes.Hue]: this.matterHueToUc(value)
+            [uc.LightAttributes.Hue]: MatterValueConverters.matterHueToUc(value)
           });
           log.debug(`Hue update value ${value} on entity ${this.entityId}.`);
         };
@@ -214,7 +143,7 @@ export class MatterDevice {
 
         this.saturationListener = (value: number) => {
           this.updateEntityAttributes({
-            [uc.LightAttributes.Saturation]: this.matterSaturationToUc(value)
+            [uc.LightAttributes.Saturation]: MatterValueConverters.matterSaturationToUc(value)
           });
           log.debug(`Saturation update value ${value} on entity ${this.entityId}.`);
         };
@@ -223,7 +152,7 @@ export class MatterDevice {
 
         this.colorTemperatureListener = (value: number) => {
           this.updateEntityAttributes({
-            [uc.LightAttributes.ColorTemperature]: this.miredToPercent(value)
+            [uc.LightAttributes.ColorTemperature]: MatterValueConverters.matterMiredToPercent(value)
           });
           log.debug(`Color update value ${value} on entity ${this.entityId}.`);
         };
@@ -234,11 +163,11 @@ export class MatterDevice {
       if (this.levelControlClient) {
         this.levelListener = (value: number | null) => {
           let entityAttributes: { [key: string]: string | number | boolean } = {
-            [uc.LightAttributes.Brightness]: this.matterLevelToUc(value)
+            [uc.LightAttributes.Brightness]: MatterValueConverters.matterLevelToUc(value)
           };
 
           if (this.onOffClient) {
-            entityAttributes[uc.LightAttributes.State] = this.matterLevelToUcSwitchState(value);
+            entityAttributes[uc.LightAttributes.State] = MatterValueConverters.matterLevelToUcSwitchState(value);
           }
 
           this.updateEntityAttributes(entityAttributes);
@@ -251,12 +180,12 @@ export class MatterDevice {
       if (this.onOffClient) {
         this.onOffListener = (value: boolean) => {
           let entityAttributes: { [key: string]: string | number | boolean } = {
-            [uc.LightAttributes.State]: this.matterOnOffToUcLightState(value)
+            [uc.LightAttributes.State]: MatterValueConverters.matterOnOffToUcLightState(value)
           };
 
           if (this.levelControlClient) {
             if (value) {
-              entityAttributes[uc.LightAttributes.Brightness] = this.matterLevelToUc(
+              entityAttributes[uc.LightAttributes.Brightness] = MatterValueConverters.matterLevelToUc(
                 this.levelControlClient.getCurrentLevelAttributeFromCache()
               );
             } else {
@@ -274,7 +203,7 @@ export class MatterDevice {
       if (this.onOffClient) {
         this.onOffListener = (value: boolean) => {
           this.updateEntityAttributes({
-            [uc.SwitchAttributes.State]: this.matterOnOffToUcSwitchState(value)
+            [uc.SwitchAttributes.State]: MatterValueConverters.matterOnOffToUcSwitchState(value)
           });
 
           log.debug(`OnOff update value ${value} on entity ${this.entityId}.`);
@@ -292,11 +221,11 @@ export class MatterDevice {
 
     if (this.colorControlClient) {
       let entityHue = options.initFromMatterCache
-        ? this.matterHueToUc(this.colorControlClient.getCurrentHueAttributeFromCache())
+        ? MatterValueConverters.matterHueToUc(this.colorControlClient.getCurrentHueAttributeFromCache())
         : this.entityAttributes[uc.LightAttributes.Hue];
 
       if (options.requestFromRemote) {
-        let remoteHue = this.matterHueToUc(
+        let remoteHue = MatterValueConverters.matterHueToUc(
           await this.colorControlClient.getCurrentHueAttribute(options.requestFromRemote)
         );
 
@@ -305,16 +234,16 @@ export class MatterDevice {
           log.debug(`Hue changed from ${entityHue} to ${remoteHue} on entity ${this.entityId}.`);
         }
       } else if (entityHue != undefined && typeof entityHue === "number") {
-        entityAttributes[uc.LightAttributes.Hue] = this.matterHueToUc(entityHue);
+        entityAttributes[uc.LightAttributes.Hue] = MatterValueConverters.matterHueToUc(entityHue);
         log.debug(`Send cached hue value ${entityHue} on entity ${this.entityId}.`);
       }
 
       let entitySaturation = options.initFromMatterCache
-        ? this.matterSaturationToUc(this.colorControlClient.getCurrentSaturationAttributeFromCache())
+        ? MatterValueConverters.matterSaturationToUc(this.colorControlClient.getCurrentSaturationAttributeFromCache())
         : this.entityAttributes[uc.LightAttributes.Saturation];
 
       if (options.requestFromRemote) {
-        let remoteSaturation = this.matterSaturationToUc(
+        let remoteSaturation = MatterValueConverters.matterSaturationToUc(
           await this.colorControlClient.getCurrentSaturationAttribute(options.requestFromRemote)
         );
 
@@ -323,16 +252,16 @@ export class MatterDevice {
           log.debug(`Saturation changed from ${entitySaturation} to ${remoteSaturation} on entity ${this.entityId}.`);
         }
       } else if (entitySaturation != undefined && typeof entitySaturation === "number") {
-        entityAttributes[uc.LightAttributes.Saturation] = this.matterSaturationToUc(entitySaturation);
+        entityAttributes[uc.LightAttributes.Saturation] = MatterValueConverters.matterSaturationToUc(entitySaturation);
         log.debug(`Send cached saturation value ${entitySaturation} on entity ${this.entityId}.`);
       }
 
       let entityColorTemperature = options.initFromMatterCache
-        ? this.miredToPercent(this.colorControlClient.getColorTemperatureMiredsAttributeFromCache())
+        ? MatterValueConverters.matterMiredToPercent(this.colorControlClient.getColorTemperatureMiredsAttributeFromCache())
         : this.entityAttributes[uc.LightAttributes.ColorTemperature];
 
       if (options.requestFromRemote) {
-        let remoteColorTemperature = this.miredToPercent(
+        let remoteColorTemperature = MatterValueConverters.matterMiredToPercent(
           await this.colorControlClient.getColorTemperatureMiredsAttribute(options.requestFromRemote)
         );
 
@@ -343,18 +272,18 @@ export class MatterDevice {
           );
         }
       } else if (entityColorTemperature != undefined && typeof entityColorTemperature === "number") {
-        entityAttributes[uc.LightAttributes.ColorTemperature] = this.miredToPercent(entityColorTemperature);
+        entityAttributes[uc.LightAttributes.ColorTemperature] = MatterValueConverters.matterMiredToPercent(entityColorTemperature);
         log.debug(`Send cached color temperature value ${entityColorTemperature} on entity ${this.entityId}.`);
       }
     }
 
     if (this.levelControlClient) {
       let entityLevel = options.initFromMatterCache
-        ? this.matterLevelToUc(this.levelControlClient.getCurrentLevelAttributeFromCache())
+        ? MatterValueConverters.matterLevelToUc(this.levelControlClient.getCurrentLevelAttributeFromCache())
         : this.entityAttributes[uc.LightAttributes.Brightness];
 
       if (options.requestFromRemote) {
-        let remoteLevel = this.matterLevelToUc(
+        let remoteLevel = MatterValueConverters.matterLevelToUc(
           await this.levelControlClient.getCurrentLevelAttribute(options.requestFromRemote)
         );
 
@@ -363,18 +292,18 @@ export class MatterDevice {
           log.debug(`Level changed from ${entityLevel} to ${remoteLevel} on entity ${this.entityId}.`);
         }
       } else if (entityLevel != undefined && typeof entityLevel === "number") {
-        entityAttributes[uc.LightAttributes.Brightness] = this.matterLevelToUc(entityLevel);
+        entityAttributes[uc.LightAttributes.Brightness] = MatterValueConverters.matterLevelToUc(entityLevel);
         log.debug(`Send cached level value ${entityLevel} on entity ${this.entityId}.`);
       }
     }
 
     if (this.onOffClient) {
       let entityState = options.initFromMatterCache
-        ? this.matterOnOffToUcLightState(this.onOffClient.getOnOffAttributeFromCache())
+        ? MatterValueConverters.matterOnOffToUcLightState(this.onOffClient.getOnOffAttributeFromCache())
         : this.entityAttributes[uc.LightAttributes.State];
 
       if (options.requestFromRemote) {
-        let remoteState = this.matterOnOffToUcLightState(
+        let remoteState = MatterValueConverters.matterOnOffToUcLightState(
           await this.onOffClient.getOnOffAttribute(options.requestFromRemote)
         );
 
@@ -383,7 +312,7 @@ export class MatterDevice {
           log.debug(`State changed from ${entityState} to ${remoteState} on entity ${this.entityId}.`);
         }
       } else if (entityState != undefined && typeof entityState === "boolean") {
-        entityAttributes[uc.LightAttributes.State] = this.matterOnOffToUcLightState(entityState);
+        entityAttributes[uc.LightAttributes.State] = MatterValueConverters.matterOnOffToUcLightState(entityState);
         log.debug(`Send cached state value ${entityState} on entity ${this.entityId}.`);
       }
 
@@ -400,11 +329,11 @@ export class MatterDevice {
 
     if (this.onOffClient) {
       let entityState = options.initFromMatterCache
-        ? this.matterOnOffToUcLightState(this.onOffClient.getOnOffAttributeFromCache())
+        ? MatterValueConverters.matterOnOffToUcLightState(this.onOffClient.getOnOffAttributeFromCache())
         : this.entityAttributes[uc.SwitchAttributes.State];
 
       if (options.requestFromRemote) {
-        let remoteState = this.matterOnOffToUcLightState(
+        let remoteState = MatterValueConverters.matterOnOffToUcLightState(
           await this.onOffClient.getOnOffAttribute(options.requestFromRemote)
         );
 
@@ -413,7 +342,7 @@ export class MatterDevice {
           log.debug(`State changed from ${entityState} to ${remoteState} on entity ${this.entityId}.`);
         }
       } else if (entityState != undefined && typeof entityState === "boolean") {
-        entityAttributes[uc.SwitchAttributes.State] = this.matterOnOffToUcSwitchState(entityState);
+        entityAttributes[uc.SwitchAttributes.State] = MatterValueConverters.matterOnOffToUcSwitchState(entityState);
         log.debug(`Send cached state value ${entityState} on entity ${this.entityId}.`);
       }
     }
