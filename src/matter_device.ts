@@ -49,6 +49,12 @@ enum MatterDeviceType {
 
 const MatterSwitchTypes = new Set([MatterDeviceType.GenericSwitch, MatterDeviceType.OnOffPlugInUnit]);
 
+export interface GetEntityAttributeOptions {
+  initFromMatterCache: boolean;
+  requestFromRemote: boolean;
+  onlyReturnChangedAttributes: boolean;
+}
+
 const MatterLightTypes = new Set([
   MatterDeviceType.OnOffLight,
   MatterDeviceType.ExtendedColorLight,
@@ -57,7 +63,7 @@ const MatterLightTypes = new Set([
   MatterDeviceType.DimmableLight
 ]);
 
-class MatterDevice {
+export class MatterDevice {
   endpointDeviceTypeId: DeviceTypeId;
   endpointNumber: number;
   endpointProductName: string | undefined;
@@ -72,6 +78,7 @@ class MatterDevice {
   colorControlClient: ClusterClientObj<ColorControl.Complete> | undefined;
   bridgedDeviceBasicInformationClient: ClusterClientObj<BridgedDeviceBasicInformation.Complete>;
   attributeListenersAdded: boolean = false;
+  entityAttributes: { [key: string]: string | number | boolean | string[] } = {};
   onOffListener: ((value: boolean) => void) | undefined;
   levelListener: ((value: number | null) => void) | undefined;
   hueListener: ((value: number) => void) | undefined;
@@ -192,28 +199,33 @@ class MatterDevice {
 
     if (this.attributeListenersAdded) return;
 
+    log.debug(`addAttributeListeners for entity id: ${this.entityId}`);
+
     if (this.entity?.entity_type == uc.EntityType.Light) {
       if (this.colorControlClient) {
         this.hueListener = (value: number) => {
-          driver.updateEntityAttributes(this.entityId!, {
+          this.updateEntityAttributes({
             [uc.LightAttributes.Hue]: this.matterHueToUc(value)
           });
+          log.debug(`Hue update value ${value} on entity ${this.entityId}.`);
         };
 
         this.colorControlClient.addCurrentHueAttributeListener(this.hueListener);
 
         this.saturationListener = (value: number) => {
-          driver.updateEntityAttributes(this.entityId!, {
+          this.updateEntityAttributes({
             [uc.LightAttributes.Saturation]: this.matterSaturationToUc(value)
           });
+          log.debug(`Saturation update value ${value} on entity ${this.entityId}.`);
         };
 
         this.colorControlClient.addCurrentSaturationAttributeListener(this.saturationListener);
 
         this.colorTemperatureListener = (value: number) => {
-          driver.updateEntityAttributes(this.entityId!, {
+          this.updateEntityAttributes({
             [uc.LightAttributes.ColorTemperature]: this.miredToPercent(value)
           });
+          log.debug(`Color update value ${value} on entity ${this.entityId}.`);
         };
 
         this.colorControlClient.addColorTemperatureMiredsAttributeListener(this.colorTemperatureListener);
@@ -229,7 +241,8 @@ class MatterDevice {
             entityAttributes[uc.LightAttributes.State] = this.matterLevelToUcSwitchState(value);
           }
 
-          driver.updateEntityAttributes(this.entityId!, entityAttributes);
+          this.updateEntityAttributes(entityAttributes);
+          log.debug(`Level update value ${value} on entity ${this.entityId}.`);
         };
 
         this.levelControlClient.addCurrentLevelAttributeListener(this.levelListener);
@@ -251,7 +264,8 @@ class MatterDevice {
             }
           }
 
-          driver.updateEntityAttributes(this.entityId!, entityAttributes);
+          this.updateEntityAttributes(entityAttributes);
+          log.debug(`OnOff update value ${value} on entity ${this.entityId}.`);
         };
 
         this.onOffClient.addOnOffAttributeListener(this.onOffListener);
@@ -259,9 +273,11 @@ class MatterDevice {
     } else if (this.entity?.entity_type == uc.EntityType.Switch) {
       if (this.onOffClient) {
         this.onOffListener = (value: boolean) => {
-          driver.updateEntityAttributes(this.entityId!, {
+          this.updateEntityAttributes({
             [uc.SwitchAttributes.State]: this.matterOnOffToUcSwitchState(value)
           });
+
+          log.debug(`OnOff update value ${value} on entity ${this.entityId}.`);
         };
 
         this.onOffClient.addOnOffAttributeListener(this.onOffListener);
@@ -271,78 +287,104 @@ class MatterDevice {
     this.attributeListenersAdded = true;
   }
 
-  private async getLightEntityAttributes(requestFromRemote: boolean, onlyReturnChangedAttributes: boolean) {
+  private async getLightEntityAttributes(options: GetEntityAttributeOptions) {
     let entityAttributes: { [key: string]: string | number | boolean } = {};
 
     if (this.colorControlClient) {
-      let cachedHue = this.colorControlClient.getCurrentHueAttributeFromCache();
+      let entityHue = options.initFromMatterCache
+        ? this.matterHueToUc(this.colorControlClient.getCurrentHueAttributeFromCache())
+        : this.entityAttributes[uc.LightAttributes.Hue];
 
-      if (requestFromRemote) {
-        let remoteHue = await this.colorControlClient.getCurrentHueAttribute(requestFromRemote);
+      if (options.requestFromRemote) {
+        let remoteHue = this.matterHueToUc(
+          await this.colorControlClient.getCurrentHueAttribute(options.requestFromRemote)
+        );
 
-        if (cachedHue != remoteHue || !onlyReturnChangedAttributes) {
-          entityAttributes[uc.LightAttributes.Hue] = this.matterHueToUc(remoteHue);
-          log.debug(`Hue changed on entity ${this.entityId}.`);
+        if (entityHue != remoteHue || !options.onlyReturnChangedAttributes) {
+          entityAttributes[uc.LightAttributes.Hue] = remoteHue;
+          log.debug(`Hue changed from ${entityHue} to ${remoteHue} on entity ${this.entityId}.`);
         }
-      } else if (cachedHue != undefined) {
-        entityAttributes[uc.LightAttributes.Hue] = this.matterHueToUc(cachedHue);
+      } else if (entityHue != undefined && typeof entityHue === "number") {
+        entityAttributes[uc.LightAttributes.Hue] = this.matterHueToUc(entityHue);
+        log.debug(`Send cached hue value ${entityHue} on entity ${this.entityId}.`);
       }
 
-      let cachedSaturation = this.colorControlClient.getCurrentSaturationAttributeFromCache();
+      let entitySaturation = options.initFromMatterCache
+        ? this.matterSaturationToUc(this.colorControlClient.getCurrentSaturationAttributeFromCache())
+        : this.entityAttributes[uc.LightAttributes.Saturation];
 
-      if (requestFromRemote) {
-        let remoteSaturation = await this.colorControlClient.getCurrentSaturationAttribute(requestFromRemote);
+      if (options.requestFromRemote) {
+        let remoteSaturation = this.matterSaturationToUc(
+          await this.colorControlClient.getCurrentSaturationAttribute(options.requestFromRemote)
+        );
 
-        if (cachedSaturation != remoteSaturation || !onlyReturnChangedAttributes) {
-          entityAttributes[uc.LightAttributes.Saturation] = this.matterSaturationToUc(remoteSaturation);
-          log.debug(`Saturation changed on entity ${this.entityId}.`);
+        if (entitySaturation != remoteSaturation || !options.onlyReturnChangedAttributes) {
+          entityAttributes[uc.LightAttributes.Saturation] = remoteSaturation;
+          log.debug(`Saturation changed from ${entitySaturation} to ${remoteSaturation} on entity ${this.entityId}.`);
         }
-      } else if (cachedSaturation != undefined) {
-        entityAttributes[uc.LightAttributes.Saturation] = this.matterSaturationToUc(cachedSaturation);
+      } else if (entitySaturation != undefined && typeof entitySaturation === "number") {
+        entityAttributes[uc.LightAttributes.Saturation] = this.matterSaturationToUc(entitySaturation);
+        log.debug(`Send cached saturation value ${entitySaturation} on entity ${this.entityId}.`);
       }
 
-      let cachedColorTemperature = this.colorControlClient.getColorTemperatureMiredsAttributeFromCache();
+      let entityColorTemperature = options.initFromMatterCache
+        ? this.miredToPercent(this.colorControlClient.getColorTemperatureMiredsAttributeFromCache())
+        : this.entityAttributes[uc.LightAttributes.ColorTemperature];
 
-      if (requestFromRemote) {
-        let remoteColorTemperature =
-          await this.colorControlClient.getColorTemperatureMiredsAttribute(requestFromRemote);
+      if (options.requestFromRemote) {
+        let remoteColorTemperature = this.miredToPercent(
+          await this.colorControlClient.getColorTemperatureMiredsAttribute(options.requestFromRemote)
+        );
 
-        if (cachedColorTemperature != remoteColorTemperature || !onlyReturnChangedAttributes) {
-          entityAttributes[uc.LightAttributes.ColorTemperature] = this.miredToPercent(remoteColorTemperature);
-          log.debug(`Color temperature changed on entity ${this.entityId}.`);
+        if (entityColorTemperature != remoteColorTemperature || !options.onlyReturnChangedAttributes) {
+          entityAttributes[uc.LightAttributes.ColorTemperature] = remoteColorTemperature;
+          log.debug(
+            `Color temperature changed from ${entityColorTemperature} to ${remoteColorTemperature} on entity ${this.entityId}.`
+          );
         }
-      } else if (cachedColorTemperature != undefined) {
-        entityAttributes[uc.LightAttributes.ColorTemperature] = this.miredToPercent(cachedColorTemperature);
+      } else if (entityColorTemperature != undefined && typeof entityColorTemperature === "number") {
+        entityAttributes[uc.LightAttributes.ColorTemperature] = this.miredToPercent(entityColorTemperature);
+        log.debug(`Send cached color temperature value ${entityColorTemperature} on entity ${this.entityId}.`);
       }
     }
 
     if (this.levelControlClient) {
-      let cachedLevel = this.levelControlClient.getCurrentLevelAttributeFromCache();
+      let entityLevel = options.initFromMatterCache
+        ? this.matterLevelToUc(this.levelControlClient.getCurrentLevelAttributeFromCache())
+        : this.entityAttributes[uc.LightAttributes.Brightness];
 
-      if (requestFromRemote) {
-        let remoteLevel = await this.levelControlClient.getCurrentLevelAttribute(requestFromRemote);
+      if (options.requestFromRemote) {
+        let remoteLevel = this.matterLevelToUc(
+          await this.levelControlClient.getCurrentLevelAttribute(options.requestFromRemote)
+        );
 
-        if (cachedLevel != remoteLevel || !onlyReturnChangedAttributes) {
-          entityAttributes[uc.LightAttributes.Brightness] = this.matterLevelToUc(remoteLevel);
-          log.debug(`Level changed on entity ${this.entityId}.`);
+        if (entityLevel != remoteLevel || !options.onlyReturnChangedAttributes) {
+          entityAttributes[uc.LightAttributes.Brightness] = remoteLevel;
+          log.debug(`Level changed from ${entityLevel} to ${remoteLevel} on entity ${this.entityId}.`);
         }
-      } else if (cachedLevel != undefined) {
-        entityAttributes[uc.LightAttributes.Brightness] = this.matterLevelToUc(cachedLevel);
+      } else if (entityLevel != undefined && typeof entityLevel === "number") {
+        entityAttributes[uc.LightAttributes.Brightness] = this.matterLevelToUc(entityLevel);
+        log.debug(`Send cached level value ${entityLevel} on entity ${this.entityId}.`);
       }
     }
 
     if (this.onOffClient) {
-      let cachedOnOff = this.onOffClient.getOnOffAttributeFromCache();
+      let entityState = options.initFromMatterCache
+        ? this.matterOnOffToUcLightState(this.onOffClient.getOnOffAttributeFromCache())
+        : this.entityAttributes[uc.LightAttributes.State];
 
-      if (requestFromRemote) {
-        let remoteOnOff = await this.onOffClient.getOnOffAttribute(requestFromRemote);
+      if (options.requestFromRemote) {
+        let remoteState = this.matterOnOffToUcLightState(
+          await this.onOffClient.getOnOffAttribute(options.requestFromRemote)
+        );
 
-        if (cachedOnOff != remoteOnOff || !onlyReturnChangedAttributes) {
-          entityAttributes[uc.LightAttributes.State] = this.matterOnOffToUcLightState(remoteOnOff);
-          log.debug(`OnOff changed on entity ${this.entityId}.`);
+        if (entityState != remoteState || !options.onlyReturnChangedAttributes) {
+          entityAttributes[uc.LightAttributes.State] = remoteState;
+          log.debug(`State changed from ${entityState} to ${remoteState} on entity ${this.entityId}.`);
         }
-      } else if (cachedOnOff != undefined) {
-        entityAttributes[uc.LightAttributes.State] = this.matterOnOffToUcLightState(cachedOnOff);
+      } else if (entityState != undefined && typeof entityState === "boolean") {
+        entityAttributes[uc.LightAttributes.State] = this.matterOnOffToUcLightState(entityState);
+        log.debug(`Send cached state value ${entityState} on entity ${this.entityId}.`);
       }
 
       if (this.levelControlClient && entityAttributes[uc.LightAttributes.State] == uc.LightStates.Off) {
@@ -353,28 +395,33 @@ class MatterDevice {
     return entityAttributes;
   }
 
-  private async getSwitchEntityAttributes(requestFromRemote: boolean, onlyReturnChangedAttributes: boolean) {
+  private async getSwitchEntityAttributes(options: GetEntityAttributeOptions) {
     let entityAttributes: { [key: string]: string | number | boolean } = {};
 
     if (this.onOffClient) {
-      let cachedOnOff = this.onOffClient.getOnOffAttributeFromCache();
+      let entityState = options.initFromMatterCache
+        ? this.matterOnOffToUcLightState(this.onOffClient.getOnOffAttributeFromCache())
+        : this.entityAttributes[uc.SwitchAttributes.State];
 
-      if (requestFromRemote) {
-        let remoteOnOff = await this.onOffClient.getOnOffAttribute(requestFromRemote);
+      if (options.requestFromRemote) {
+        let remoteState = this.matterOnOffToUcLightState(
+          await this.onOffClient.getOnOffAttribute(options.requestFromRemote)
+        );
 
-        if (cachedOnOff != remoteOnOff || !onlyReturnChangedAttributes) {
-          entityAttributes[uc.SwitchAttributes.State] = this.matterOnOffToUcSwitchState(remoteOnOff);
-          log.debug(`OnOff changed on entity ${this.entityId}.`);
+        if (entityState != remoteState || !options.onlyReturnChangedAttributes) {
+          entityAttributes[uc.SwitchAttributes.State] = remoteState;
+          log.debug(`State changed from ${entityState} to ${remoteState} on entity ${this.entityId}.`);
         }
-      } else if (cachedOnOff != undefined) {
-        entityAttributes[uc.SwitchAttributes.State] = this.matterOnOffToUcSwitchState(cachedOnOff);
+      } else if (entityState != undefined && typeof entityState === "boolean") {
+        entityAttributes[uc.SwitchAttributes.State] = this.matterOnOffToUcSwitchState(entityState);
+        log.debug(`Send cached state value ${entityState} on entity ${this.entityId}.`);
       }
     }
 
     return entityAttributes;
   }
 
-  async sendAttributes(requestFromRemote: boolean, onlySendChangedAttributes: boolean) {
+  async sendAttributes(options: GetEntityAttributeOptions) {
     if (!this.entityId) {
       throw new Error("MatterDevice not initialized");
     }
@@ -385,22 +432,40 @@ class MatterDevice {
 
     switch (this.entity.entity_type) {
       case uc.EntityType.Light:
-        entityAttributes = await this.getLightEntityAttributes(requestFromRemote, onlySendChangedAttributes);
+        entityAttributes = await this.getLightEntityAttributes(options);
         break;
       case uc.EntityType.Switch:
-        entityAttributes = await this.getSwitchEntityAttributes(requestFromRemote, onlySendChangedAttributes);
+        entityAttributes = await this.getSwitchEntityAttributes(options);
         break;
       default:
         return;
     }
 
     if (Object.keys(entityAttributes).length) {
-      driver.updateEntityAttributes(this.entityId, entityAttributes);
+      this.updateEntityAttributes(entityAttributes);
+    }
+  }
+
+  updateEntityAttributes(attributes: { [key: string]: string | number | boolean }) {
+    if (!this.entityId) {
+      throw new Error("MatterDevice not initialized");
+    }
+
+    if (driver.updateEntityAttributes(this.entityId, attributes)) {
+      this.updateCachedEntityAttributes(attributes);
+    }
+  }
+
+  updateCachedEntityAttributes(attributes: { [key: string]: string | number | boolean | string[] }) {
+    for (const [key, value] of Object.entries(attributes)) {
+      this.entityAttributes[key] = value;
     }
   }
 
   removeAttributeListeners() {
     if (!this.attributeListenersAdded) return;
+
+    log.debug(`removeAttributeListeners for entity id: ${this.entityId}`);
 
     if (this.onOffClient && this.onOffListener) {
       this.onOffClient.removeOnOffAttributeListener(this.onOffListener);
@@ -444,7 +509,11 @@ class MatterDevice {
 
     var lightFeatures: uc.LightFeatures[] = [];
 
-    let entityAttributes = await this.getLightEntityAttributes(false, false);
+    let entityAttributes = await this.getLightEntityAttributes({
+      initFromMatterCache: true,
+      requestFromRemote: false,
+      onlyReturnChangedAttributes: false
+    });
 
     if (this.colorControlClient) {
       lightFeatures.push(uc.LightFeatures.Color, uc.LightFeatures.ColorTemperature);
@@ -477,7 +546,11 @@ class MatterDevice {
           ? uc.SwitchDeviceClasses.Outlet
           : uc.SwitchDeviceClasses.Switch;
 
-      let entityAttributes = await this.getSwitchEntityAttributes(false, false);
+      let entityAttributes = await this.getSwitchEntityAttributes({
+        initFromMatterCache: true,
+        requestFromRemote: false,
+        onlyReturnChangedAttributes: false
+      });
 
       entity = new uc.Switch(this.entityId!, this.entityLabel!, {
         features: [uc.SwitchFeatures.OnOff, uc.SwitchFeatures.Toggle],
@@ -489,6 +562,16 @@ class MatterDevice {
 
     return entity;
   }
-}
 
-export { MatterDevice };
+  addAvailableEntity() {
+    if (!this.entity) return false;
+
+    if (this.entity.attributes) {
+      this.updateCachedEntityAttributes(this.entity.attributes);
+    }
+
+    driver.addAvailableEntity(this.entity);
+
+    return true;
+  }
+}

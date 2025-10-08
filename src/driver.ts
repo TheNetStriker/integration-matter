@@ -44,7 +44,11 @@ driver.on(uc.Events.ExitStandby, async () => {
           let { matterDevice } = getConfiguredMatterBridgeByEntityId(entityId);
 
           if (matterDevice) {
-            await matterDevice.sendAttributes(true, true);
+            await matterDevice.sendAttributes({
+              initFromMatterCache: false,
+              requestFromRemote: true,
+              onlyReturnChangedAttributes: true
+            });
             log.debug(`Got new values after standby for entity: ${entityId}`);
           }
         }
@@ -61,7 +65,11 @@ driver.on(uc.Events.SubscribeEntities, async (entityIds: string[]) => {
 
     if (matterDevice) {
       matterDevice.addAttributeListeners();
-      await matterDevice.sendAttributes(false, false);
+      await matterDevice.sendAttributes({
+        initFromMatterCache: false,
+        requestFromRemote: false,
+        onlyReturnChangedAttributes: false
+      });
     }
 
     subscribedEntities.set(entityId, true);

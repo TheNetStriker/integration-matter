@@ -70,7 +70,7 @@ async function addMatterBridge(matterBridge: matter.MatterBridge, addEntites: bo
     let entity = await matterDevice.getUcEntity();
 
     if (entity && addEntites) {
-      driver.addAvailableEntity(entity);
+      matterDevice.addAvailableEntity();
     }
 
     if (entity && matterDevice.entityIdentifier) {
@@ -153,7 +153,7 @@ async function onMatterBridgeUpdated(updatedMatterBridge: matter.MatterBridge) {
       let addedMatterDevice = updatedMatterBridgeDevices.devices.get(deviceId);
 
       if (addedMatterDevice && addedMatterDevice.entity) {
-        driver.addAvailableEntity(addedMatterDevice.entity);
+        addedMatterDevice.addAvailableEntity();
       }
     }
 
@@ -180,7 +180,7 @@ async function onMatterBridgeUpdated(updatedMatterBridge: matter.MatterBridge) {
         configuredEntities.removeEntity(newMatterDevice.entity.id);
         availableEntities.removeEntity(newMatterDevice.entity.id);
 
-        driver.addAvailableEntity(newMatterDevice.entity);
+        newMatterDevice.addAvailableEntity();
       }
     }
   }
