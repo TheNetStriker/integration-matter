@@ -1,6 +1,7 @@
 import * as matter from "../matter_controller.js";
 import { Descriptor } from "@matter/main/clusters";
 import { Endpoint } from "@project-chip/matter.js/device";
+import { Entity } from "@unfoldedcircle/integration-api";
 
 import log from "../loggers.js";
 import { driver } from "../driver.js";
@@ -24,16 +25,25 @@ const subscribedEntities = new Map<string, boolean>();
 const createDevice = async function (endpoint: Endpoint, matterBridge: MatterBridge, deviceInfo: DeviceInfo) {
   const deviceType = endpoint.deviceType.valueOf();
   let device: BaseDevice;
+  let entity: Entity;
 
   if (MatterSwitchTypes.has(deviceType)) {
-    device = new SwitchDevice(endpoint, matterBridge, deviceInfo);
+    entity = await SwitchDevice.initUcEntity(endpoint, deviceInfo);
+    device = new SwitchDevice(endpoint, matterBridge, deviceInfo, entity);
   } else if (MatterLightTypes.has(deviceType)) {
-    device = new LightDevice(endpoint, matterBridge, deviceInfo);
+    entity = await SwitchDevice.initUcEntity(endpoint, deviceInfo);
+    device = new LightDevice(endpoint, matterBridge, deviceInfo, entity);
   } else {
     throw new Error(`Matter device type id ${deviceType} not supported at the moment.`);
   }
 
-  await device.initUcEntity();
+  entity.attributes = await device.getEntityAttributes({
+    initFromMatterCache: true,
+    requestFromRemote: false,
+    onlyReturnChangedAttributes: false
+  });
+
+  entity.setCmdHandler(device.entityCmdHandler.bind(device));
 
   return device;
 };

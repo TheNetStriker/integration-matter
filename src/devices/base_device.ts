@@ -76,23 +76,28 @@ export abstract class BaseDevice {
   endpoint: Endpoint;
   deviceInfo: DeviceInfo;
 
-  entity: uc.Entity | undefined;
+  entity: uc.Entity;
   entityAttributes: { [key: string]: string | number | boolean | string[] } = {};
 
   attributeListenersAdded: boolean = false;
   attributeListeners: Array<{ listener: (...args: any[]) => void; removeMethod: (listener: any) => void }> = [];
 
-  constructor(endpoint: Endpoint, matterBridge: MatterBridge, deviceInfo: DeviceInfo) {
+  constructor(endpoint: Endpoint, matterBridge: MatterBridge, deviceInfo: DeviceInfo, entity: uc.Entity) {
     this.endpoint = endpoint;
     this.matterBridge = matterBridge;
     this.deviceInfo = deviceInfo;
+    this.entity = entity;
   }
 
   public abstract addAttributeListeners(): void;
-  public abstract initUcEntity(): Promise<void>;
-  protected abstract getEntityAttributes(
+  abstract getEntityAttributes(
     options: GetEntityAttributeOptions
   ): Promise<{ [key: string]: string | number | boolean }>;
+  abstract entityCmdHandler(
+    entity: uc.Entity,
+    cmdId: string,
+    params?: { [key: string]: string | number | boolean | string[] }
+  ): ReturnType<uc.CommandHandler>;
 
   public static async initDeviceInfo(endpoint: Endpoint, matterBridge: MatterBridge): Promise<DeviceInfo> {
     const bridgedDeviceBasicInformationClient =
@@ -133,6 +138,42 @@ export abstract class BaseDevice {
     };
   }
 
+  addAttributeListener(entityAttribute: string) {
+    let matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(this.entity.entity_type, entityAttribute);
+    let addAttributeListener = MatterHelpers.getAddAttributeListener(
+      this.entity.entity_type,
+      entityAttribute,
+      this.endpoint
+    );
+    let removeAttributeListener = MatterHelpers.getRemoveAttributeListener(
+      this.entity.entity_type,
+      entityAttribute,
+      this.endpoint
+    );
+
+    if (!matterToUcStateConverter || !addAttributeListener || !removeAttributeListener) {
+      log.warn(`Could not add attribute listeners on entity ${this.deviceInfo.entityId}`);
+      return;
+    }
+
+    let listener = (value: any) => {
+      this.updateEntityAttributes({
+        [entityAttribute]: matterToUcStateConverter(value)
+      });
+
+      log.debug(
+        `${MatterHelpers.getReadableEntityAttributeName(entityAttribute, true)} update value ${value} on entity ${this.deviceInfo.entityId}.`
+      );
+    };
+
+    addAttributeListener(listener);
+
+    this.attributeListeners.push({
+      listener: listener,
+      removeMethod: removeAttributeListener
+    });
+  }
+
   removeAttributeListeners() {
     if (!this.attributeListenersAdded) return;
 
@@ -148,8 +189,6 @@ export abstract class BaseDevice {
   }
 
   protected async getEntityAttribute(options: GetEntityAttributeOptions, entityAttribute: string) {
-    if (!this.entity || !this.entity.entity_type) return;
-
     let getattribute = MatterHelpers.getAttribute(this.entity.entity_type, entityAttribute, this.endpoint);
     let getAttributeFromCache = MatterHelpers.getAttributeFromCache(
       this.entity.entity_type,
@@ -169,24 +208,21 @@ export abstract class BaseDevice {
       let remoteValue = matterToUcStateConverter(await getattribute(options.requestFromRemote));
 
       if (cachedValue != remoteValue || !options.onlyReturnChangedAttributes) {
-        let entityAttributeCapitalized = entityAttribute.toUpperCase() + entityAttribute.slice(1);
         log.debug(
-          `${entityAttributeCapitalized} changed from ${cachedValue} to ${remoteValue} on entity ${this.deviceInfo.entityId}.`
+          `${MatterHelpers.getReadableEntityAttributeName(entityAttribute, true)} changed from ${cachedValue} to ${remoteValue} on entity ${this.deviceInfo.entityId}.`
         );
         return remoteValue;
       }
     } else if (cachedValue != undefined) {
-      log.debug(`Send cached ${entityAttribute} value ${cachedValue} on entity ${this.deviceInfo.entityId}.`);
+      log.debug(
+        `Send cached ${MatterHelpers.getReadableEntityAttributeName(entityAttribute, false)} value ${cachedValue} on entity ${this.deviceInfo.entityId}.`
+      );
       return cachedValue;
     }
   }
 
   async sendAttributes(options: GetEntityAttributeOptions) {
-    if (!this.deviceInfo.entityId) {
-      throw new Error("MatterDevice not initialized");
-    }
-
-    if (!this.attributeListenersAdded || !this.entity) return;
+    if (!this.attributeListenersAdded) return;
 
     let entityAttributes = await this.getEntityAttributes(options);
 
@@ -196,10 +232,6 @@ export abstract class BaseDevice {
   }
 
   updateEntityAttributes(attributes: { [key: string]: string | number | boolean }) {
-    if (!this.deviceInfo.entityId) {
-      throw new Error("MatterDevice not initialized");
-    }
-
     if (driver.updateEntityAttributes(this.deviceInfo.entityId, attributes)) {
       this.updateCachedEntityAttributes(attributes);
     }
@@ -212,8 +244,6 @@ export abstract class BaseDevice {
   }
 
   addAvailableEntity() {
-    if (!this.entity) return false;
-
     if (this.entity.attributes) {
       this.updateCachedEntityAttributes(this.entity.attributes);
     }

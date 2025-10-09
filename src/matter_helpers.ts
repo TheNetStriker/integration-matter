@@ -87,4 +87,62 @@ export class MatterHelpers {
         }
     }
   }
+
+  static getAddAttributeListener(
+    entityType: string,
+    entityAttribute: string,
+    endpoint: Endpoint
+  ): ((listener: any) => void) | undefined {
+    switch (entityType) {
+      case EntityType.Switch:
+        return endpoint.getClusterClient(OnOff.Complete)?.addOnOffAttributeListener;
+      case EntityType.Light:
+        switch (entityAttribute) {
+          case LightAttributes.State:
+            return endpoint.getClusterClient(OnOff.Complete)?.addOnOffAttributeListener;
+          case LightAttributes.Brightness:
+            return endpoint.getClusterClient(LevelControl.Complete)?.addCurrentLevelAttributeListener;
+          case LightAttributes.Hue:
+            return endpoint.getClusterClient(ColorControl.Complete)?.addCurrentHueAttributeListener;
+          case LightAttributes.Saturation:
+            return endpoint.getClusterClient(ColorControl.Complete)?.addCurrentSaturationAttributeListener;
+          case LightAttributes.ColorTemperature:
+            return endpoint.getClusterClient(ColorControl.Complete)?.addColorTemperatureMiredsAttributeListener;
+        }
+    }
+  }
+
+  static getRemoveAttributeListener(
+    entityType: string,
+    entityAttribute: string,
+    endpoint: Endpoint
+  ): ((listener: any) => void) | undefined {
+    switch (entityType) {
+      case EntityType.Switch:
+        return endpoint.getClusterClient(OnOff.Complete)?.removeOnOffAttributeListener;
+      case EntityType.Light:
+        switch (entityAttribute) {
+          case LightAttributes.State:
+            return endpoint.getClusterClient(OnOff.Complete)?.removeOnOffAttributeListener;
+          case LightAttributes.Brightness:
+            return endpoint.getClusterClient(LevelControl.Complete)?.removeCurrentLevelAttributeListener;
+          case LightAttributes.Hue:
+            return endpoint.getClusterClient(ColorControl.Complete)?.removeCurrentHueAttributeListener;
+          case LightAttributes.Saturation:
+            return endpoint.getClusterClient(ColorControl.Complete)?.removeCurrentSaturationAttributeListener;
+          case LightAttributes.ColorTemperature:
+            return endpoint.getClusterClient(ColorControl.Complete)?.removeColorTemperatureMiredsAttributeListener;
+        }
+    }
+  }
+
+  static getReadableEntityAttributeName(attribute: string, capitalizeFirstLetter: boolean) {
+    let readableEntityAttributeName = attribute.replace("_", " ");
+
+    if (capitalizeFirstLetter) {
+      readableEntityAttributeName = readableEntityAttributeName[0].toUpperCase() + readableEntityAttributeName.slice(1);
+    }
+
+    return readableEntityAttributeName;
+  }
 }

@@ -3,8 +3,9 @@ import { ColorControl, LevelControl, OnOff } from "@matter/main/clusters";
 
 import log from "../loggers.js";
 import { MatterValueConverters } from "../matter_value_converters.js";
-import { BaseDevice, GetEntityAttributeOptions } from "./base_device.js";
+import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
 import { driverConfig } from "../config.js";
+import { Endpoint } from "@project-chip/matter.js/device";
 
 export class LightDevice extends BaseDevice {
   addAttributeListeners() {
@@ -17,126 +18,45 @@ export class LightDevice extends BaseDevice {
     const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
 
     if (colorControlClient) {
-      let hueListener = (value: number) => {
-        this.updateEntityAttributes({
-          [uc.LightAttributes.Hue]: MatterValueConverters.matterHueToUc(value)
-        });
-        log.debug(`Hue update value ${value} on entity ${this.deviceInfo.entityId}.`);
-      };
-
-      colorControlClient.addCurrentHueAttributeListener(hueListener);
-      this.attributeListeners.push({
-        listener: hueListener,
-        removeMethod: colorControlClient.removeCurrentHueAttributeListener
-      });
-
-      let saturationListener = (value: number) => {
-        this.updateEntityAttributes({
-          [uc.LightAttributes.Saturation]: MatterValueConverters.matterSaturationToUc(value)
-        });
-        log.debug(`Saturation update value ${value} on entity ${this.deviceInfo.entityId}.`);
-      };
-
-      colorControlClient.addCurrentSaturationAttributeListener(saturationListener);
-      this.attributeListeners.push({
-        listener: saturationListener,
-        removeMethod: colorControlClient.removeCurrentSaturationAttributeListener
-      });
-
-      let colorTemperatureListener = (value: number) => {
-        this.updateEntityAttributes({
-          [uc.LightAttributes.ColorTemperature]: MatterValueConverters.matterMiredToPercent(value)
-        });
-        log.debug(`Color update value ${value} on entity ${this.deviceInfo.entityId}.`);
-      };
-
-      colorControlClient.addColorTemperatureMiredsAttributeListener(colorTemperatureListener);
-      this.attributeListeners.push({
-        listener: colorTemperatureListener,
-        removeMethod: colorControlClient.removeColorTemperatureMiredsAttributeListener
-      });
+      this.addAttributeListener(uc.LightAttributes.Hue);
+      this.addAttributeListener(uc.LightAttributes.Saturation);
+      this.addAttributeListener(uc.LightAttributes.ColorTemperature);
     }
 
     if (levelControlClient) {
-      let levelListener = (value: number | null) => {
-        let entityAttributes: { [key: string]: string | number | boolean } = {
-          [uc.LightAttributes.Brightness]: MatterValueConverters.matterLevelToUc(value)
-        };
-
-        if (onOffClient) {
-          entityAttributes[uc.LightAttributes.State] = MatterValueConverters.matterLevelToUcSwitchState(value);
-        }
-
-        this.updateEntityAttributes(entityAttributes);
-        log.debug(`Level update value ${value} on entity ${this.deviceInfo.entityId}.`);
-      };
-
-      levelControlClient.addCurrentLevelAttributeListener(levelListener);
-      this.attributeListeners.push({
-        listener: levelListener,
-        removeMethod: levelControlClient.removeCurrentLevelAttributeListener
-      });
+      this.addAttributeListener(uc.LightAttributes.Brightness);
     }
 
     if (onOffClient) {
-      let onOffListener = (value: boolean) => {
-        let entityAttributes: { [key: string]: string | number | boolean } = {
-          [uc.LightAttributes.State]: MatterValueConverters.matterOnOffToUcLightState(value)
-        };
-
-        if (levelControlClient) {
-          if (value) {
-            entityAttributes[uc.LightAttributes.Brightness] = MatterValueConverters.matterLevelToUc(
-              levelControlClient.getCurrentLevelAttributeFromCache()
-            );
-          } else {
-            entityAttributes[uc.LightAttributes.Brightness] = 0;
-          }
-        }
-
-        this.updateEntityAttributes(entityAttributes);
-        log.debug(`OnOff update value ${value} on entity ${this.deviceInfo.entityId}.`);
-      };
-
-      onOffClient.addOnOffAttributeListener(onOffListener);
-      this.attributeListeners.push({
-        listener: onOffListener,
-        removeMethod: onOffClient.removeOnOffAttributeListener
-      });
+      this.addAttributeListener(uc.LightAttributes.State);
     }
 
     this.attributeListenersAdded = true;
   }
 
-  async initUcEntity(): Promise<void> {
+  static async initUcEnstity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var lightFeatures: uc.LightFeatures[] = [];
 
-    if (this.endpoint.hasClusterClient(ColorControl.Complete)) {
+    if (endpoint.hasClusterClient(ColorControl.Complete)) {
       lightFeatures.push(uc.LightFeatures.Color, uc.LightFeatures.ColorTemperature);
     }
 
-    if (this.endpoint.hasClusterClient(LevelControl.Complete)) {
+    if (endpoint.hasClusterClient(LevelControl.Complete)) {
       lightFeatures.push(uc.LightFeatures.Dim);
     }
 
-    if (this.endpoint.hasClusterClient(OnOff.Complete)) {
+    if (endpoint.hasClusterClient(OnOff.Complete)) {
       lightFeatures.push(uc.LightFeatures.OnOff, uc.LightFeatures.Toggle);
     }
 
-    this.entity = new uc.Light(this.deviceInfo.entityId, this.deviceInfo.entityLabel, {
+    const entity = new uc.Light(deviceInfo.entityId, deviceInfo.entityLabel, {
       features: lightFeatures
     });
 
-    this.entity.attributes = await this.getEntityAttributes({
-      initFromMatterCache: true,
-      requestFromRemote: false,
-      onlyReturnChangedAttributes: false
-    });
-
-    this.entity.setCmdHandler(this.lightCmdHandler.bind(this));
+    return entity;
   }
 
-  protected async getEntityAttributes(options: GetEntityAttributeOptions) {
+  async getEntityAttributes(options: GetEntityAttributeOptions) {
     let entityAttributes: { [key: string]: string | number | boolean } = {};
 
     let entityHue = await this.getEntityAttribute(options, uc.LightAttributes.Hue);
@@ -168,7 +88,7 @@ export class LightDevice extends BaseDevice {
    * @param params optional command parameters
    * @return status of the command
    */
-  async lightCmdHandler(
+  async entityCmdHandler(
     entity: uc.Entity,
     cmdId: string,
     params?: { [key: string]: string | number | boolean | string[] }
