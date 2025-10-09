@@ -34,7 +34,7 @@ export class LightDevice extends BaseDevice {
     this.attributeListenersAdded = true;
   }
 
-  static async initUcEnstity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
+  static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var lightFeatures: uc.LightFeatures[] = [];
 
     if (endpoint.hasClusterClient(ColorControl.Complete)) {
@@ -57,25 +57,35 @@ export class LightDevice extends BaseDevice {
   }
 
   async getEntityAttributes(options: GetEntityAttributeOptions) {
-    let entityAttributes: { [key: string]: string | number | boolean } = {};
+    return this.getEntityStateAttributes(
+      [
+        uc.LightAttributes.Hue,
+        uc.LightAttributes.Saturation,
+        uc.LightAttributes.ColorTemperature,
+        uc.LightAttributes.Brightness,
+        uc.LightAttributes.State
+      ],
+      options
+    );
+  }
 
-    let entityHue = await this.getEntityAttribute(options, uc.LightAttributes.Hue);
-    if (entityHue != undefined) entityAttributes[uc.LightAttributes.Hue] = entityHue;
+  hasFeatureForAttribute(attribute: string) {
+    if (!this.entity.features) return false;
 
-    let entitySaturation = await this.getEntityAttribute(options, uc.LightAttributes.Saturation);
-    if (entitySaturation !== undefined) entityAttributes[uc.LightAttributes.Saturation] = entitySaturation;
+    switch (attribute) {
+      case uc.LightAttributes.Brightness:
+        return this.entity.features.includes(uc.LightFeatures.Dim);
+      case uc.LightAttributes.ColorTemperature:
+        return this.entity.features.includes(uc.LightFeatures.ColorTemperature);
+      case uc.LightAttributes.Hue:
+        return this.entity.features.includes(uc.LightFeatures.Color);
+      case uc.LightAttributes.Saturation:
+        return this.entity.features.includes(uc.LightFeatures.Color);
+      case uc.LightAttributes.State:
+        return this.entity.features.includes(uc.SwitchFeatures.OnOff);
+    }
 
-    let entityColorTemperature = await this.getEntityAttribute(options, uc.LightAttributes.ColorTemperature);
-    if (entityColorTemperature !== undefined)
-      entityAttributes[uc.LightAttributes.ColorTemperature] = entityColorTemperature;
-
-    let entityLevel = await this.getEntityAttribute(options, uc.LightAttributes.Brightness);
-    if (entityLevel !== undefined) entityAttributes[uc.LightAttributes.Brightness] = entityLevel;
-
-    let entityState = await this.getEntityAttribute(options, uc.LightAttributes.State);
-    if (entityState !== undefined) entityAttributes[uc.LightAttributes.State] = entityState;
-
-    return entityAttributes;
+    return false;
   }
 
   /**

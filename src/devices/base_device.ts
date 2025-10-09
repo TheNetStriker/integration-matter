@@ -93,6 +93,7 @@ export abstract class BaseDevice {
   abstract getEntityAttributes(
     options: GetEntityAttributeOptions
   ): Promise<{ [key: string]: string | number | boolean }>;
+  abstract hasFeatureForAttribute(attribute: string): boolean;
   abstract entityCmdHandler(
     entity: uc.Entity,
     cmdId: string,
@@ -229,6 +230,22 @@ export abstract class BaseDevice {
     if (Object.keys(entityAttributes).length) {
       this.updateEntityAttributes(entityAttributes);
     }
+  }
+
+  async getEntityStateAttributes(entityAttributes: string[], options: GetEntityAttributeOptions) {
+    let attributes: { [key: string]: string | number | boolean } = {};
+
+    for (let entityAttribute of entityAttributes) {
+      if (this.hasFeatureForAttribute(entityAttribute)) {
+        let entityState = await this.getEntityAttribute(options, entityAttribute);
+
+        if (entityState != undefined) {
+          attributes[entityAttribute] = entityState;
+        }
+      }
+    }
+
+    return attributes;
   }
 
   updateEntityAttributes(attributes: { [key: string]: string | number | boolean }) {

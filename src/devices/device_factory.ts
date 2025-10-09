@@ -31,7 +31,7 @@ const createDevice = async function (endpoint: Endpoint, matterBridge: MatterBri
     entity = await SwitchDevice.initUcEntity(endpoint, deviceInfo);
     device = new SwitchDevice(endpoint, matterBridge, deviceInfo, entity);
   } else if (MatterLightTypes.has(deviceType)) {
-    entity = await SwitchDevice.initUcEntity(endpoint, deviceInfo);
+    entity = await LightDevice.initUcEntity(endpoint, deviceInfo);
     device = new LightDevice(endpoint, matterBridge, deviceInfo, entity);
   } else {
     throw new Error(`Matter device type id ${deviceType} not supported at the moment.`);

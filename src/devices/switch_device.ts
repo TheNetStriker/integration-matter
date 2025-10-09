@@ -42,12 +42,18 @@ export class SwitchDevice extends BaseDevice {
   }
 
   async getEntityAttributes(options: GetEntityAttributeOptions) {
-    let entityAttributes: { [key: string]: string | number | boolean } = {};
+    return this.getEntityStateAttributes([uc.SwitchAttributes.State], options);
+  }
 
-    let entityState = await this.getEntityAttribute(options, uc.SwitchAttributes.State);
-    if (entityState != undefined) entityAttributes[uc.LightAttributes.Hue] = entityState;
+  hasFeatureForAttribute(attribute: string): boolean {
+    if (!this.entity.features) return false;
 
-    return entityAttributes;
+    switch (attribute) {
+      case uc.SwitchAttributes.State:
+        return this.entity.features.includes(uc.SwitchFeatures.OnOff);
+    }
+
+    return false;
   }
 
   /**
