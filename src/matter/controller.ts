@@ -16,10 +16,10 @@ import { Endpoint, PairedNode } from "@project-chip/matter.js/device";
 import fs from "fs";
 import path from "path";
 
-import log from "./loggers.js";
-import type { RedisStorage } from "./storage/redis-storage.js";
-import { StorageBackendAsyncJsonFile } from "./storage/json-storage.js";
-import { driverConfig } from "./config.js";
+import log from "../loggers.js";
+import type { RedisStorage } from "../storage/redis-storage.js";
+import { StorageBackendAsyncJsonFile } from "../storage/json-storage.js";
+import { driverConfig } from "../config.js";
 
 class MatterBridge {
   id: NodeId;
@@ -96,7 +96,7 @@ class ControllerNode {
         return false;
       }
 
-      let valkeyrieStorageLib = await import("./storage/valkeyrie-storage.js");
+      let valkeyrieStorageLib = await import("../storage/valkeyrie-storage.js");
       let valkeyrieStorage = new valkeyrieStorageLib.ValkeyrieStorage(valkeyrieStorageFile);
 
       storageService.factory = () => valkeyrieStorage;
@@ -113,7 +113,7 @@ class ControllerNode {
 
       log.info(`Storage location: ${storageService.location} exists ${fs.existsSync(storageService.location)}`);
     } else if (storageType?.startsWith("redis://")) {
-      let redisStorageLib = await import("./storage/redis-storage.js");
+      let redisStorageLib = await import("../storage/redis-storage.js");
       this.redisStorage = new redisStorageLib.RedisStorage(storageType);
 
       storageService.factory = () => this.redisStorage!;

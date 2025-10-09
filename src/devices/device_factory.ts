@@ -1,4 +1,4 @@
-import * as matter from "../matter_controller.js";
+import * as matter from "../matter/controller.js";
 import { Descriptor } from "@matter/main/clusters";
 import { Endpoint } from "@project-chip/matter.js/device";
 import { Entity } from "@unfoldedcircle/integration-api";
@@ -8,7 +8,7 @@ import { driver } from "../driver.js";
 import { BaseDevice, DeviceInfo, MatterLightTypes, MatterSwitchTypes } from "./base_device.js";
 import { SwitchDevice } from "./switch_device.js";
 import { LightDevice } from "./light_device.js";
-import { MatterBridge } from "../matter_controller.js";
+import { MatterBridge } from "../matter/controller.js";
 
 interface MatterBridgeDevices {
   bridge: matter.MatterBridge;

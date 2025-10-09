@@ -2,7 +2,7 @@ import * as uc from "@unfoldedcircle/integration-api";
 import { NodeId } from "@matter/main";
 
 import log from "./loggers.js";
-import * as matter from "./matter_controller.js";
+import * as matter from "./matter/controller.js";
 import { initializeAndStartMatterController } from "./driver.js";
 import { driverConfig } from "./config.js";
 

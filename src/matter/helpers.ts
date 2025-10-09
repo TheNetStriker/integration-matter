@@ -1,7 +1,7 @@
 import { ColorControl, LevelControl, OnOff } from "@matter/main/clusters";
 import { EntityType, LightAttributes } from "@unfoldedcircle/integration-api";
 import { Endpoint } from "@project-chip/matter.js/device";
-import { MatterValueConverters } from "./matter_value_converters.js";
+import { MatterValueConverters } from "./converters.js";
 
 export class MatterHelpers {
   static getMatterToUcStateConverter(entityType: string, entityAttribute: string): ((value: any) => any) | undefined {

@@ -2,7 +2,7 @@ import * as uc from "@unfoldedcircle/integration-api";
 import { ColorControl, LevelControl, OnOff } from "@matter/main/clusters";
 
 import log from "../loggers.js";
-import { MatterValueConverters } from "../matter_value_converters.js";
+import { MatterValueConverters } from "../matter/converters.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
 import { driverConfig } from "../config.js";
 import { Endpoint } from "@project-chip/matter.js/device";

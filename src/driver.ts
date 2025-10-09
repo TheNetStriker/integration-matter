@@ -5,7 +5,7 @@ import * as path from "path";
 import log from "./loggers.js";
 import { driverConfig } from "./config.js";
 import { driverSetupHandler } from "./setup_flow.js";
-import * as matter from "./matter_controller.js";
+import * as matter from "./matter/controller.js";
 import {
   getConfiguredMatterBridgeByEntityId,
   onMatterBridgeAdded,

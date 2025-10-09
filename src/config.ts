@@ -4,7 +4,7 @@ import debug from "debug";
 import { LogLevel } from "@matter/main";
 
 import log from "./loggers.js";
-import * as matter from "./matter_controller.js";
+import * as matter from "./matter/controller.js";
 
 const CFG_FILENAME = "driver_config.json";
 

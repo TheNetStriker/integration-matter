@@ -4,8 +4,8 @@ import { Endpoint } from "@project-chip/matter.js/device";
 
 import log from "../loggers.js";
 import { driver } from "../driver.js";
-import { MatterBridge } from "../matter_controller.js";
-import { MatterHelpers } from "../matter_helpers.js";
+import { MatterBridge } from "../matter/controller.js";
+import { MatterHelpers } from "../matter/helpers.js";
 
 export enum MatterDeviceType {
   PowerSource = 17,
