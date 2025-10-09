@@ -12,7 +12,7 @@ import {
   onMatterBridgeRemoved,
   onMatterBridgeUpdated,
   subscribedEntities
-} from "./matter_device_handlers.js";
+} from "./devices/device_factory.js";
 
 const driver = new uc.IntegrationAPI();
 
