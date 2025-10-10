@@ -223,8 +223,6 @@ export abstract class BaseDevice {
   }
 
   async sendAttributes(options: GetEntityAttributeOptions) {
-    if (!this.attributeListenersAdded) return;
-
     let entityAttributes = await this.getEntityAttributes(options);
 
     if (Object.keys(entityAttributes).length) {

@@ -67,7 +67,7 @@ driver.on(uc.Events.SubscribeEntities, async (entityIds: string[]) => {
       matterDevice.addAttributeListeners();
       await matterDevice.sendAttributes({
         initFromMatterCache: false,
-        requestFromRemote: false,
+        requestFromRemote: isRunningOnRemote,
         onlyReturnChangedAttributes: false
       });
     }
