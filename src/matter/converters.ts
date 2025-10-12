@@ -68,4 +68,12 @@ export class MatterValueConverters {
   static matterOnOffToUcLightState(value: boolean | undefined) {
     return value === true ? LightStates.On : value === false ? LightStates.Off : LightStates.Unknown;
   }
+
+  static matterTemperatureToUc(value: any) {
+    return value / 100;
+  }
+
+  static matterHumidityToUc(value: any) {
+    return value / 100;
+  }
 }

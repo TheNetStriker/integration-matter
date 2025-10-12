@@ -61,6 +61,8 @@ export const MatterLightTypes = new Set([
   MatterDeviceType.DimmableLight
 ]);
 
+export const MatterSensorTypes = new Set([MatterDeviceType.TemperatureSensor, MatterDeviceType.HumiditySensor]);
+
 export interface DeviceInfo {
   endpointProductName: string | undefined;
   endpointLabel: string | undefined;
@@ -152,7 +154,8 @@ export abstract class BaseDevice {
   private onMatterAttributeChanged = (entityAttribute: string, value: any) => {
     const matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(
       this.entity.entity_type,
-      entityAttribute
+      entityAttribute,
+      this.endpoint.deviceType
     );
     if (!matterToUcStateConverter) return;
 
@@ -172,7 +175,11 @@ export abstract class BaseDevice {
   };
 
   addAttributeListener(entityAttribute: string) {
-    let matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(this.entity.entity_type, entityAttribute);
+    let matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(
+      this.entity.entity_type,
+      entityAttribute,
+      this.endpoint.deviceType
+    );
     let addMatterAttributeListener = MatterHelpers.getAddMatterAttributeListener(
       this.entity.entity_type,
       entityAttribute,
@@ -226,7 +233,11 @@ export abstract class BaseDevice {
       this.endpoint
     );
 
-    let matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(this.entity.entity_type, entityAttribute);
+    let matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(
+      this.entity.entity_type,
+      entityAttribute,
+      this.endpoint.deviceType
+    );
 
     if (!getMatterAttribute || !getMatterAttributeFromCache || !matterToUcStateConverter) return;
 

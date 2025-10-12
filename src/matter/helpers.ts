@@ -1,10 +1,21 @@
-import { ColorControl, LevelControl, OnOff } from "@matter/main/clusters";
-import { EntityType, LightAttributes } from "@unfoldedcircle/integration-api";
+import {
+  ColorControl,
+  LevelControl,
+  OnOff,
+  TemperatureMeasurement,
+  RelativeHumidityMeasurement
+} from "@matter/main/clusters";
+import { EntityType, LightAttributes, SensorAttributes, SensorDeviceClasses } from "@unfoldedcircle/integration-api";
 import { Endpoint } from "@project-chip/matter.js/device";
 import { MatterValueConverters } from "./converters.js";
+import { MatterDeviceType } from "../devices/base_device.js";
 
 export class MatterHelpers {
-  static getMatterToUcStateConverter(entityType: string, entityAttribute: string): ((value: any) => any) | undefined {
+  static getMatterToUcStateConverter(
+    entityType: string,
+    entityAttribute: string,
+    endpointDeviceType: number
+  ): ((value: any) => any) | undefined {
     switch (entityType) {
       case EntityType.Switch:
         return MatterValueConverters.matterOnOffToUcSwitchState;
@@ -20,6 +31,17 @@ export class MatterHelpers {
             return MatterValueConverters.matterSaturationToUc;
           case LightAttributes.ColorTemperature:
             return MatterValueConverters.matterMiredToPercent;
+        }
+      case EntityType.Sensor:
+        switch (entityAttribute) {
+          case SensorAttributes.Value: {
+            switch (endpointDeviceType) {
+              case MatterDeviceType.TemperatureSensor:
+                return MatterValueConverters.matterTemperatureToUc;
+              case MatterDeviceType.HumiditySensor:
+                return MatterValueConverters.matterHumidityToUc;
+            }
+          }
         }
     }
   }
@@ -61,6 +83,16 @@ export class MatterHelpers {
           case LightAttributes.ColorTemperature:
             return endpoint.getClusterClient(ColorControl.Complete)?.getColorTemperatureMiredsAttribute;
         }
+      case EntityType.Sensor:
+        switch (entityAttribute) {
+          case SensorAttributes.Value:
+            switch (endpoint.deviceType.valueOf()) {
+              case MatterDeviceType.TemperatureSensor:
+                return endpoint.getClusterClient(TemperatureMeasurement.Complete)?.getMeasuredValueAttribute;
+              case MatterDeviceType.HumiditySensor:
+                return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)?.getMeasuredValueAttribute;
+            }
+        }
     }
   }
 
@@ -84,6 +116,17 @@ export class MatterHelpers {
             return endpoint.getClusterClient(ColorControl.Complete)?.getCurrentSaturationAttributeFromCache;
           case LightAttributes.ColorTemperature:
             return endpoint.getClusterClient(ColorControl.Complete)?.getColorTemperatureMiredsAttributeFromCache;
+        }
+      case EntityType.Sensor:
+        switch (entityAttribute) {
+          case SensorAttributes.Value:
+            switch (endpoint.deviceType.valueOf()) {
+              case MatterDeviceType.TemperatureSensor:
+                return endpoint.getClusterClient(TemperatureMeasurement.Complete)?.getMeasuredValueAttributeFromCache;
+              case MatterDeviceType.HumiditySensor:
+                return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)
+                  ?.getMeasuredValueAttributeFromCache;
+            }
         }
     }
   }
@@ -109,6 +152,17 @@ export class MatterHelpers {
           case LightAttributes.ColorTemperature:
             return endpoint.getClusterClient(ColorControl.Complete)?.addColorTemperatureMiredsAttributeListener;
         }
+      case EntityType.Sensor:
+        switch (entityAttribute) {
+          case SensorAttributes.Value:
+            switch (endpoint.deviceType.valueOf()) {
+              case MatterDeviceType.TemperatureSensor:
+                return endpoint.getClusterClient(TemperatureMeasurement.Complete)?.addMeasuredValueAttributeListener;
+              case MatterDeviceType.HumiditySensor:
+                return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)
+                  ?.addMeasuredValueAttributeListener;
+            }
+        }
     }
   }
 
@@ -133,6 +187,28 @@ export class MatterHelpers {
           case LightAttributes.ColorTemperature:
             return endpoint.getClusterClient(ColorControl.Complete)?.removeColorTemperatureMiredsAttributeListener;
         }
+      case EntityType.Sensor:
+        switch (entityAttribute) {
+          case SensorAttributes.Value:
+            switch (endpoint.deviceType.valueOf()) {
+              case MatterDeviceType.TemperatureSensor:
+                return endpoint.getClusterClient(TemperatureMeasurement.Complete)?.removeMeasuredValueAttributeListener;
+              case MatterDeviceType.HumiditySensor:
+                return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)
+                  ?.removeMeasuredValueAttributeListener;
+            }
+        }
+    }
+  }
+
+  static getUcSensorDeviceClass(matterDeviceType: number) {
+    switch (matterDeviceType) {
+      case MatterDeviceType.TemperatureSensor:
+        return SensorDeviceClasses.Temperature;
+      case MatterDeviceType.HumiditySensor:
+        return SensorDeviceClasses.Humidity;
+      default:
+        return SensorDeviceClasses.Custom;
     }
   }
 

@@ -12,9 +12,7 @@ export class SwitchDevice extends BaseDevice {
 
     log.debug(`addAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
 
-    const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
-
-    if (onOffClient) {
+    if (this.hasFeatureForAttribute(uc.SwitchAttributes.State)) {
       this.addAttributeListener(uc.SwitchAttributes.State);
     }
   }

@@ -5,10 +5,11 @@ import { Entity } from "@unfoldedcircle/integration-api";
 
 import log from "../loggers.js";
 import { driver } from "../driver.js";
-import { BaseDevice, DeviceInfo, MatterLightTypes, MatterSwitchTypes } from "./base_device.js";
+import { BaseDevice, DeviceInfo, MatterLightTypes, MatterSensorTypes, MatterSwitchTypes } from "./base_device.js";
 import { SwitchDevice } from "./switch_device.js";
 import { LightDevice } from "./light_device.js";
 import { MatterBridge } from "../matter/controller.js";
+import { SensorDevice } from "./sensor_device.js";
 
 interface MatterBridgeDevices {
   bridge: matter.MatterBridge;
@@ -33,6 +34,9 @@ const createDevice = async function (endpoint: Endpoint, matterBridge: MatterBri
   } else if (MatterLightTypes.has(deviceType)) {
     entity = await LightDevice.initUcEntity(endpoint, deviceInfo);
     device = new LightDevice(endpoint, matterBridge, deviceInfo, entity);
+  } else if (MatterSensorTypes.has(deviceType)) {
+    entity = await SensorDevice.initUcEntity(endpoint, deviceInfo);
+    device = new SensorDevice(endpoint, matterBridge, deviceInfo, entity);
   } else {
     throw new Error(`Matter device type id ${deviceType} not supported at the moment.`);
   }
