@@ -8,7 +8,7 @@ import { Endpoint } from "@project-chip/matter.js/device";
 
 export class SwitchDevice extends BaseDevice {
   addAttributeListeners() {
-    if (this.attributeListenersAdded) return;
+    if (this.hasAttributeListeners()) return;
 
     log.debug(`addAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
 
@@ -17,8 +17,6 @@ export class SwitchDevice extends BaseDevice {
     if (onOffClient) {
       this.addAttributeListener(uc.SwitchAttributes.State);
     }
-
-    this.attributeListenersAdded = true;
   }
 
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
@@ -66,11 +64,11 @@ export class SwitchDevice extends BaseDevice {
    * @param params optional command parameters
    * @return status of the command
    */
-  async entityCmdHandler(
+  entityCmdHandler = async (
     entity: uc.Entity,
     cmdId: string,
     params?: { [key: string]: string | number | boolean | string[] }
-  ): ReturnType<uc.CommandHandler> {
+  ): ReturnType<uc.CommandHandler> => {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     if (!this.matterBridge.rootNode.isConnected) {
@@ -103,5 +101,5 @@ export class SwitchDevice extends BaseDevice {
     }
 
     return uc.StatusCodes.Ok;
-  }
+  };
 }

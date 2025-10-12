@@ -40,7 +40,7 @@ export class MatterHelpers {
     }
   }
 
-  static getAttribute(
+  static getMatterAttribute(
     entityType: string,
     entityAttribute: string,
     endpoint: Endpoint
@@ -64,7 +64,7 @@ export class MatterHelpers {
     }
   }
 
-  static getAttributeFromCache(
+  static getMatterAttributeFromCache(
     entityType: string,
     entityAttribute: string,
     endpoint: Endpoint
@@ -88,7 +88,7 @@ export class MatterHelpers {
     }
   }
 
-  static getAddAttributeListener(
+  static getAddMatterAttributeListener(
     entityType: string,
     entityAttribute: string,
     endpoint: Endpoint
@@ -112,7 +112,7 @@ export class MatterHelpers {
     }
   }
 
-  static getRemoveAttributeListener(
+  static getRemoveMatterAttributeListener(
     entityType: string,
     entityAttribute: string,
     endpoint: Endpoint

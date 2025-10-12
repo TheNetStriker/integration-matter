@@ -307,6 +307,32 @@ class ControllerNode {
     return undefined;
   }
 
+  async connectAllNodes() {
+    if (!this.commissioningController) return;
+
+    for (const nodeId of this.commissioningController.getCommissionedNodes()) {
+      try {
+        let node = await this.commissioningController.getNode(nodeId);
+        node.connect();
+      } catch (e) {
+        log.error(e);
+      }
+    }
+  }
+
+  async disconnectAllNodes() {
+    if (!this.commissioningController) return;
+
+    for (const nodeId of this.commissioningController.getCommissionedNodes()) {
+      try {
+        let node = await this.commissioningController.getNode(nodeId);
+        await node.disconnect();
+      } catch (e) {
+        log.error(e);
+      }
+    }
+  }
+
   async connectPairedNode(node: PairedNode) {
     if (!this.commissioningController) return;
 

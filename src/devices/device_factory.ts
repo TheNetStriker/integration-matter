@@ -43,7 +43,7 @@ const createDevice = async function (endpoint: Endpoint, matterBridge: MatterBri
     onlyReturnChangedAttributes: false
   });
 
-  entity.setCmdHandler(device.entityCmdHandler.bind(device));
+  entity.setCmdHandler(device.entityCmdHandler);
 
   return device;
 };

@@ -27,35 +27,18 @@ driver.on(uc.Events.Disconnect, async () => {
 });
 
 driver.on(uc.Events.EnterStandby, async () => {
-  log.debug("Enter standby event.");
+  log.debug("Enter standby event%s.", isRunningOnRemote ? ", disconnecting all nodes" : "");
+
+  if (isRunningOnRemote) {
+    matter.controllerNode.disconnectAllNodes();
+  }
 });
 
 driver.on(uc.Events.ExitStandby, async () => {
-  log.debug("Exit standby event%s.", isRunningOnRemote ? ", checking for new entity values" : "");
+  log.debug("Exit standby event%s.", isRunningOnRemote ? ", reconnecting to all nodes" : "");
 
-  // If we are running on the remote we have outdated values
-  // We have to get fresh values from the matter bridge.
   if (isRunningOnRemote) {
-    for (const [entityId, subscribed] of subscribedEntities) {
-      try {
-        if (subscribed) {
-          log.debug(`Getting new values after standby for entity: ${entityId}`);
-
-          let { matterDevice } = getConfiguredMatterBridgeByEntityId(entityId);
-
-          if (matterDevice) {
-            await matterDevice.sendAttributes({
-              initFromMatterCache: false,
-              requestFromRemote: true,
-              onlyReturnChangedAttributes: true
-            });
-            log.debug(`Got new values after standby for entity: ${entityId}`);
-          }
-        }
-      } catch (e) {
-        log.error(e);
-      }
-    }
+    matter.controllerNode.connectAllNodes();
   }
 });
 

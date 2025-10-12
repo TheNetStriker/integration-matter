@@ -9,29 +9,29 @@ import { Endpoint } from "@project-chip/matter.js/device";
 
 export class LightDevice extends BaseDevice {
   addAttributeListeners() {
-    if (this.attributeListenersAdded) return;
+    if (this.hasAttributeListeners()) return;
 
     log.debug(`addAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
 
-    const colorControlClient = this.endpoint.getClusterClient(ColorControl.Complete);
-    const levelControlClient = this.endpoint.getClusterClient(LevelControl.Complete);
-    const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
-
-    if (colorControlClient) {
+    if (this.hasFeatureForAttribute(uc.LightAttributes.Hue)) {
       this.addAttributeListener(uc.LightAttributes.Hue);
+    }
+
+    if (this.hasFeatureForAttribute(uc.LightAttributes.Saturation)) {
       this.addAttributeListener(uc.LightAttributes.Saturation);
+    }
+
+    if (this.hasFeatureForAttribute(uc.LightAttributes.ColorTemperature)) {
       this.addAttributeListener(uc.LightAttributes.ColorTemperature);
     }
 
-    if (levelControlClient) {
+    if (this.hasFeatureForAttribute(uc.LightAttributes.Brightness)) {
       this.addAttributeListener(uc.LightAttributes.Brightness);
     }
 
-    if (onOffClient) {
+    if (this.hasFeatureForAttribute(uc.LightAttributes.State)) {
       this.addAttributeListener(uc.LightAttributes.State);
     }
-
-    this.attributeListenersAdded = true;
   }
 
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
@@ -57,7 +57,7 @@ export class LightDevice extends BaseDevice {
   }
 
   async getEntityAttributes(options: GetEntityAttributeOptions) {
-    return this.getEntityStateAttributes(
+    let entityAttributes = await this.getEntityStateAttributes(
       [
         uc.LightAttributes.Hue,
         uc.LightAttributes.Saturation,
@@ -67,6 +67,16 @@ export class LightDevice extends BaseDevice {
       ],
       options
     );
+
+    if (
+      this.hasFeatureForAttribute(uc.LightAttributes.Brightness) &&
+      this.hasFeatureForAttribute(uc.LightAttributes.State) &&
+      entityAttributes[uc.LightAttributes.State] == uc.LightStates.Off
+    ) {
+      entityAttributes[uc.LightAttributes.Brightness] = 0;
+    }
+
+    return entityAttributes;
   }
 
   hasFeatureForAttribute(attribute: string) {
@@ -98,11 +108,11 @@ export class LightDevice extends BaseDevice {
    * @param params optional command parameters
    * @return status of the command
    */
-  async entityCmdHandler(
+  entityCmdHandler = async (
     entity: uc.Entity,
     cmdId: string,
     params?: { [key: string]: string | number | boolean | string[] }
-  ): ReturnType<uc.CommandHandler> {
+  ): ReturnType<uc.CommandHandler> => {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     if (!this.matterBridge.rootNode.isConnected) {
@@ -178,5 +188,5 @@ export class LightDevice extends BaseDevice {
     }
 
     return uc.StatusCodes.Ok;
-  }
+  };
 }
