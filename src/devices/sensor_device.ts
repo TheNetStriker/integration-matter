@@ -4,6 +4,7 @@ import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions, MatterDeviceType } from "./base_device.js";
 import { Endpoint } from "@project-chip/matter.js/device";
 import { MatterHelpers } from "../matter/helpers.js";
+import { driverConfig, TemperatureUnit } from "../config.js";
 
 export class SensorDevice extends BaseDevice {
   addAttributeListeners() {
@@ -29,7 +30,13 @@ export class SensorDevice extends BaseDevice {
     let endpointDeviceType = this.endpoint.deviceType.valueOf();
 
     if (endpointDeviceType == MatterDeviceType.TemperatureSensor) {
-      entityAttributes[uc.SensorAttributes.Unit] = "°C";
+      switch (driverConfig.get().temperatureUnit) {
+        case TemperatureUnit.Celcius:
+          entityAttributes[uc.SensorAttributes.Unit] = "°C";
+          break;
+        case TemperatureUnit.Fahrenheit:
+          entityAttributes[uc.SensorAttributes.Unit] = "°F";
+      }
     } else if (endpointDeviceType == MatterDeviceType.HumiditySensor) {
       entityAttributes[uc.SensorAttributes.Unit] = "%";
     }

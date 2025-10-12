@@ -1,4 +1,5 @@
 import { LightStates, SwitchStates } from "@unfoldedcircle/integration-api";
+import { driverConfig, TemperatureUnit } from "../config.js";
 
 export class MatterValueConverters {
   static ucPercentToMired(value: number) {
@@ -70,10 +71,14 @@ export class MatterValueConverters {
   }
 
   static matterTemperatureToUc(value: any) {
-    return value / 100;
+    if (driverConfig.get().temperatureUnit == TemperatureUnit.Fahrenheit) {
+      return value * 0.018 + 32;
+    } else {
+      return value * 0.01;
+    }
   }
 
   static matterHumidityToUc(value: any) {
-    return value / 100;
+    return value * 0.01;
   }
 }

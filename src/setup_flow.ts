@@ -45,6 +45,19 @@ async function userInputDriverConfig(): Promise<uc.RequestUserInput> {
     {
       field: {
         dropdown: {
+          value: config.temperatureUnit.toString(),
+          items: [
+            { id: "0", label: { en: "Celcius" } },
+            { id: "1", label: { en: "Fahrenheit" } }
+          ]
+        }
+      },
+      id: "temperatureUnit",
+      label: { en: "Temperature unit", de: "Temperatureinheit" }
+    },
+    {
+      field: {
+        dropdown: {
           value: config.driverLogLevel.toString(),
           items: [
             { id: "0", label: { en: "TRACE" } },
@@ -283,6 +296,7 @@ async function handleDriverConfigRequest(msg: uc.DriverSetupRequest): Promise<uc
 async function handleDriverConfigDataResponse(msg: uc.UserDataResponse): Promise<uc.SetupComplete | uc.SetupError> {
   const lightTransitionTime = msg.inputValues["lightTransitionTime"];
   const matterFabricLabel = msg.inputValues["matterFabricLabel"];
+  const temperatureUnit = msg.inputValues["temperatureUnit"];
   const driverLogLevel = msg.inputValues["driverLogLevel"];
   const matterLogLevel = msg.inputValues["matterLogLevel"];
   const ucapiLogLevel = msg.inputValues["ucapiLogLevel"];
@@ -293,6 +307,7 @@ async function handleDriverConfigDataResponse(msg: uc.UserDataResponse): Promise
 
   config.matterFabricLabel = matterFabricLabel;
   config.lightTransitionTime = Number(lightTransitionTime);
+  config.temperatureUnit = Number(temperatureUnit);
   config.driverLogLevel = Number(driverLogLevel);
   config.matterLogLevel = Number(matterLogLevel);
   config.ucapiLogLevel = Number(ucapiLogLevel);

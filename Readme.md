@@ -90,16 +90,16 @@ After pairing has finished the matter devices are discovered in the background. 
 
 After the initial setup there are multiple configuration options:
 
-| Option                                          | Description                                                                                                                                                                              |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Light transition time in tenths of a second     | Not supported by OpenHAB and also does not seem to work with HomeAssistant Matter Hub. But maybe this works with other home automation systems                                           |
-| Add new matter device                           | Enter another pairing code to pair to another matter device.                                                                                                                             |
-| Driver configuration                            | Configure matter fabric label and debug levels. Only set the debug level of the Matter log level higher if really needed. It generates a lot of log messages and can impact performance. |
-| Generate pairing code for another Matter device | Generates a pairing code to for another device to add the same matter device as selected in the dropdown.                                                                                |
-| Matter structure debug output                   | Outputs the whole structure of the matter device to a textbox in the browser. This is useful to debug problems with matter devices.                                                      |
-| Decommission matter device                      | Cleanly removes the matter device from the integration. This also informs the remote system about the removal. This will not work if the remote system is offline.                       |
-| Force remove matter device                      | This option should only be used if the remote system does not work or was reset to factory configuration.                                                                                |
-| Reset configuration                             | This option should only be used as a last resort if nothing is working anymore. This will wipe the whole matter configuration and setup a new matter controller.                         |
+| Option                                          | Description                                                                                                                                                                                                                       |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Light transition time in tenths of a second     | Not supported by OpenHAB and also does not seem to work with HomeAssistant Matter Hub. But maybe this works with other home automation systems                                                                                    |
+| Add new matter device                           | Enter another pairing code to pair to another matter device.                                                                                                                                                                      |
+| Driver configuration                            | Configure light transition time, matter fabric label, temperature unit and debug levels. Only set the debug level of the Matter log level higher if really needed. It generates a lot of log messages and can impact performance. |
+| Generate pairing code for another Matter device | Generates a pairing code to for another device to add the same matter device as selected in the dropdown.                                                                                                                         |
+| Matter structure debug output                   | Outputs the whole structure of the matter device to a textbox in the browser. This is useful to debug problems with matter devices.                                                                                               |
+| Decommission matter device                      | Cleanly removes the matter device from the integration. This also informs the remote system about the removal. This will not work if the remote system is offline.                                                                |
+| Force remove matter device                      | This option should only be used if the remote system does not work or was reset to factory configuration.                                                                                                                         |
+| Reset configuration                             | This option should only be used as a last resort if nothing is working anymore. This will wipe the whole matter configuration and setup a new matter controller.                                                                  |
 
 ### OpenHAB
 

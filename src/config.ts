@@ -8,11 +8,17 @@ import * as matter from "./matter/controller.js";
 
 const CFG_FILENAME = "driver_config.json";
 
+enum TemperatureUnit {
+  Celcius = 0,
+  Fahrenheit = 1
+}
+
 class DriverSettings {
   matterUniqueId: string | undefined;
   matterFabricLabel: string | undefined;
   // in tenths of a second
   lightTransitionTime: number = 10;
+  temperatureUnit: TemperatureUnit = TemperatureUnit.Celcius;
   driverLogLevel: number = 4;
   matterLogLevel: number = 4;
   ucapiLogLevel: number = 4;
@@ -141,4 +147,4 @@ class DriverConfig {
 
 const driverConfig = new DriverConfig();
 
-export { DriverSettings, driverConfig };
+export { DriverSettings, TemperatureUnit, driverConfig };
