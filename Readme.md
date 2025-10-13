@@ -14,7 +14,7 @@ If you want to help out to test other systems please contact me on GitHub or in 
 
 ## Supported devices
 
-At the moment only switches and HSB lights are supported. If you need other devices please contact me.
+At the moment only switches, HSB lights temperature and humidity sensors are supported. If you need other devices please contact me.
 
 ## Installation
 

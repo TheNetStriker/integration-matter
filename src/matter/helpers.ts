@@ -8,7 +8,7 @@ import {
 import { EntityType, LightAttributes, SensorAttributes, SensorDeviceClasses } from "@unfoldedcircle/integration-api";
 import { Endpoint } from "@project-chip/matter.js/device";
 import { MatterValueConverters } from "./converters.js";
-import { MatterDeviceType } from "../devices/base_device.js";
+import { MatterDeviceType } from "../devices/device_maps.js";
 
 export class MatterHelpers {
   static getMatterToUcStateConverter(

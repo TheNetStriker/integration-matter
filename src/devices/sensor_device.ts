@@ -1,10 +1,11 @@
 import * as uc from "@unfoldedcircle/integration-api";
 
 import log from "../loggers.js";
-import { BaseDevice, DeviceInfo, GetEntityAttributeOptions, MatterDeviceType } from "./base_device.js";
+import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
 import { Endpoint } from "@project-chip/matter.js/device";
 import { MatterHelpers } from "../matter/helpers.js";
 import { driverConfig, TemperatureUnit } from "../config.js";
+import { MatterDeviceType } from "./device_maps.js";
 
 export class SensorDevice extends BaseDevice {
   addAttributeListeners() {
@@ -46,7 +47,7 @@ export class SensorDevice extends BaseDevice {
     return entityAttributes;
   }
 
-  hasFeatureForAttribute(attribute: string): boolean {
+  hasAttribute(attribute: string): boolean {
     return attribute == uc.SensorAttributes.Value;
   }
 

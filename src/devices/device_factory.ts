@@ -4,42 +4,29 @@ import { Endpoint } from "@project-chip/matter.js/device";
 import { Entity } from "@unfoldedcircle/integration-api";
 
 import log from "../loggers.js";
-import { driver } from "../driver.js";
-import { BaseDevice, DeviceInfo, MatterLightTypes, MatterSensorTypes, MatterSwitchTypes } from "./base_device.js";
-import { SwitchDevice } from "./switch_device.js";
-import { LightDevice } from "./light_device.js";
+import { configuredDevices, driver, subscribedEntities } from "../globals.js";
+import { BaseDevice, DeviceInfo } from "./base_device.js";
 import { MatterBridge } from "../matter/controller.js";
-import { SensorDevice } from "./sensor_device.js";
+import { getDeviceClass } from "./device_maps.js";
 
 interface MatterBridgeDevices {
   bridge: matter.MatterBridge;
   devices: Map<string, BaseDevice>;
 }
 
-/**
- * Configured Matter bridges.
- * @type {Map<string, MatterBridgeDevices>}
- */
-const configuredDevices: Map<string, MatterBridgeDevices> = new Map<string, MatterBridgeDevices>();
-const subscribedEntities = new Map<string, boolean>();
-
 const createDevice = async function (endpoint: Endpoint, matterBridge: MatterBridge, deviceInfo: DeviceInfo) {
   const deviceType = endpoint.deviceType.valueOf();
   let device: BaseDevice;
   let entity: Entity;
 
-  if (MatterSwitchTypes.has(deviceType)) {
-    entity = await SwitchDevice.initUcEntity(endpoint, deviceInfo);
-    device = new SwitchDevice(endpoint, matterBridge, deviceInfo, entity);
-  } else if (MatterLightTypes.has(deviceType)) {
-    entity = await LightDevice.initUcEntity(endpoint, deviceInfo);
-    device = new LightDevice(endpoint, matterBridge, deviceInfo, entity);
-  } else if (MatterSensorTypes.has(deviceType)) {
-    entity = await SensorDevice.initUcEntity(endpoint, deviceInfo);
-    device = new SensorDevice(endpoint, matterBridge, deviceInfo, entity);
-  } else {
-    throw new Error(`Matter device type id ${deviceType} not supported at the moment.`);
+  const DeviceClass = await getDeviceClass(deviceType);
+
+  if (!DeviceClass) {
+    throw new Error(`Matter device type ${deviceType} not supported`);
   }
+
+  entity = await DeviceClass.initUcEntity(endpoint, deviceInfo);
+  device = new DeviceClass(endpoint, matterBridge, deviceInfo, entity);
 
   entity.attributes = await device.getEntityAttributes({
     initFromMatterCache: true,
@@ -237,8 +224,6 @@ function diffKeys(oldKeys: Iterable<string>, newKeys: Iterable<string>) {
 
 export {
   MatterBridgeDevices,
-  configuredDevices,
-  subscribedEntities,
   getConfiguredMatterBridgeByEntityId,
   onMatterBridgeAdded,
   onMatterBridgeRemoved,

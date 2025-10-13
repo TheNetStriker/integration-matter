@@ -3,65 +3,15 @@ import { BridgedDeviceBasicInformation } from "@matter/main/clusters";
 import { Endpoint } from "@project-chip/matter.js/device";
 
 import log from "../loggers.js";
-import { driver } from "../driver.js";
+import { driver } from "../globals.js";
 import { MatterBridge } from "../matter/controller.js";
 import { MatterHelpers } from "../matter/helpers.js";
-
-export enum MatterDeviceType {
-  PowerSource = 17,
-  BridgedNode = 19,
-  ElectricalSensor = 1296,
-  OnOffLight = 256,
-  DimmableLight = 257,
-  ColorTemperatureLight = 268,
-  ExtendedColorLight = 269,
-  OnOffPlugInUnit = 266,
-  DimmablePlugInUnit = 267,
-  MountedOnOffControl = 271,
-  MountedDimmableLoadControl = 272,
-  OnOffLightSwitch = 259,
-  DimmerSwitch = 260,
-  ColorDimmerSwitch = 261,
-  GenericSwitch = 15,
-  ContactSensor = 21,
-  LightSensor = 262,
-  OccupancySensor = 263,
-  TemperatureSensor = 770,
-  HumiditySensor = 775,
-  OnOffSensor = 2128,
-  AirQualitySensor = 44,
-  WaterFreezeDetector = 65,
-  WaterLeakDetector = 67,
-  RainSensor = 68,
-  DoorLock = 10,
-  WindowCovering = 514,
-  Thermostat = 769,
-  Fan = 43,
-  AirPurifier = 45,
-  RoboticVacuumCleaner = 116,
-  RoomAirConditioner = 114,
-  SolarPower = 23,
-  BatteryStorage = 24,
-  ThreadBorderRouter = 145
-}
-
-export const MatterSwitchTypes = new Set([MatterDeviceType.GenericSwitch, MatterDeviceType.OnOffPlugInUnit]);
 
 export interface GetEntityAttributeOptions {
   initFromMatterCache: boolean;
   requestFromRemote: boolean;
   onlyReturnChangedAttributes: boolean;
 }
-
-export const MatterLightTypes = new Set([
-  MatterDeviceType.OnOffLight,
-  MatterDeviceType.ExtendedColorLight,
-  MatterDeviceType.OnOffLightSwitch,
-  MatterDeviceType.ColorTemperatureLight,
-  MatterDeviceType.DimmableLight
-]);
-
-export const MatterSensorTypes = new Set([MatterDeviceType.TemperatureSensor, MatterDeviceType.HumiditySensor]);
 
 export interface DeviceInfo {
   endpointProductName: string | undefined;
@@ -101,7 +51,7 @@ export abstract class BaseDevice {
   abstract getEntityAttributes(
     options: GetEntityAttributeOptions
   ): Promise<{ [key: string]: string | number | boolean }>;
-  abstract hasFeatureForAttribute(attribute: string): boolean;
+  abstract hasAttribute(attribute: string): boolean;
   abstract entityCmdHandler(
     entity: uc.Entity,
     cmdId: string,
@@ -166,7 +116,7 @@ export abstract class BaseDevice {
       `${MatterHelpers.getReadableEntityAttributeName(entityAttribute, true)} update value ${value} on entity ${this.deviceInfo.entityId}.`
     );
 
-    if (entityAttribute == "state" && value == false && this.hasFeatureForAttribute(uc.LightAttributes.Brightness)) {
+    if (entityAttribute == "state" && value == false && this.hasAttribute(uc.LightAttributes.Brightness)) {
       attributes[uc.LightAttributes.Brightness] = 0;
       log.debug(`Light state change, setting brightness to 0 on entity ${this.deviceInfo.entityId}.`);
     }
@@ -285,7 +235,7 @@ export abstract class BaseDevice {
     let attributes: { [key: string]: string | number | boolean } = {};
 
     for (let entityAttribute of entityAttributes) {
-      if (this.hasFeatureForAttribute(entityAttribute)) {
+      if (this.hasAttribute(entityAttribute)) {
         let entityState = await this.getEntityAttribute(options, entityAttribute);
 
         if (entityState != undefined) {

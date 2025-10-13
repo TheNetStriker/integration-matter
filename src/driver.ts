@@ -10,13 +10,9 @@ import {
   getConfiguredMatterBridgeByEntityId,
   onMatterBridgeAdded,
   onMatterBridgeRemoved,
-  onMatterBridgeUpdated,
-  subscribedEntities
+  onMatterBridgeUpdated
 } from "./devices/device_factory.js";
-
-const driver = new uc.IntegrationAPI();
-
-const isRunningOnRemote = process.env.UC_MODEL != undefined;
+import { driver, isRunningOnRemote, subscribedEntities } from "./globals.js";
 
 driver.on(uc.Events.Connect, async () => {
   await driver.setDeviceState(uc.DeviceStates.Connected);
@@ -130,7 +126,7 @@ async function main() {
   }
 }
 
-export { driver, initializeAndStartMatterController };
+export { initializeAndStartMatterController };
 
 // Execute the main function if the module is run directly
 if (import.meta.url === new URL("", import.meta.url).href) {

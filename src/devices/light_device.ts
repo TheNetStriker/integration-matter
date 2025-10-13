@@ -13,23 +13,23 @@ export class LightDevice extends BaseDevice {
 
     log.debug(`addAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
 
-    if (this.hasFeatureForAttribute(uc.LightAttributes.Hue)) {
+    if (this.hasAttribute(uc.LightAttributes.Hue)) {
       this.addAttributeListener(uc.LightAttributes.Hue);
     }
 
-    if (this.hasFeatureForAttribute(uc.LightAttributes.Saturation)) {
+    if (this.hasAttribute(uc.LightAttributes.Saturation)) {
       this.addAttributeListener(uc.LightAttributes.Saturation);
     }
 
-    if (this.hasFeatureForAttribute(uc.LightAttributes.ColorTemperature)) {
+    if (this.hasAttribute(uc.LightAttributes.ColorTemperature)) {
       this.addAttributeListener(uc.LightAttributes.ColorTemperature);
     }
 
-    if (this.hasFeatureForAttribute(uc.LightAttributes.Brightness)) {
+    if (this.hasAttribute(uc.LightAttributes.Brightness)) {
       this.addAttributeListener(uc.LightAttributes.Brightness);
     }
 
-    if (this.hasFeatureForAttribute(uc.LightAttributes.State)) {
+    if (this.hasAttribute(uc.LightAttributes.State)) {
       this.addAttributeListener(uc.LightAttributes.State);
     }
   }
@@ -69,8 +69,8 @@ export class LightDevice extends BaseDevice {
     );
 
     if (
-      this.hasFeatureForAttribute(uc.LightAttributes.Brightness) &&
-      this.hasFeatureForAttribute(uc.LightAttributes.State) &&
+      this.hasAttribute(uc.LightAttributes.Brightness) &&
+      this.hasAttribute(uc.LightAttributes.State) &&
       entityAttributes[uc.LightAttributes.State] == uc.LightStates.Off
     ) {
       entityAttributes[uc.LightAttributes.Brightness] = 0;
@@ -79,7 +79,7 @@ export class LightDevice extends BaseDevice {
     return entityAttributes;
   }
 
-  hasFeatureForAttribute(attribute: string) {
+  hasAttribute(attribute: string) {
     if (!this.entity.features) return false;
 
     switch (attribute) {

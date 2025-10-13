@@ -2,9 +2,9 @@ import * as uc from "@unfoldedcircle/integration-api";
 import { OnOff } from "@matter/main/clusters";
 
 import log from "../loggers.js";
-import { MatterValueConverters } from "../matter/converters.js";
-import { BaseDevice, DeviceInfo, GetEntityAttributeOptions, MatterDeviceType } from "./base_device.js";
+import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
 import { Endpoint } from "@project-chip/matter.js/device";
+import { MatterDeviceType } from "./device_maps.js";
 
 export class SwitchDevice extends BaseDevice {
   addAttributeListeners() {
@@ -12,7 +12,7 @@ export class SwitchDevice extends BaseDevice {
 
     log.debug(`addAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
 
-    if (this.hasFeatureForAttribute(uc.SwitchAttributes.State)) {
+    if (this.hasAttribute(uc.SwitchAttributes.State)) {
       this.addAttributeListener(uc.SwitchAttributes.State);
     }
   }
@@ -41,7 +41,7 @@ export class SwitchDevice extends BaseDevice {
     return this.getEntityStateAttributes([uc.SwitchAttributes.State], options);
   }
 
-  hasFeatureForAttribute(attribute: string): boolean {
+  hasAttribute(attribute: string): boolean {
     if (!this.entity.features) return false;
 
     switch (attribute) {
