@@ -1,11 +1,11 @@
 import * as uc from "@unfoldedcircle/integration-api";
 import { ColorControl, LevelControl, OnOff } from "@matter/main/clusters";
+import { Endpoint } from "@project-chip/matter.js/device";
 
 import log from "../loggers.js";
 import { MatterValueConverters } from "../matter/converters.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
 import { driverConfig } from "../config.js";
-import { Endpoint } from "@project-chip/matter.js/device";
 
 export class LightDevice extends BaseDevice {
   addAttributeListeners() {
@@ -114,10 +114,6 @@ export class LightDevice extends BaseDevice {
     params?: { [key: string]: string | number | boolean | string[] }
   ): ReturnType<uc.CommandHandler> => {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
-
-    if (!this.matterBridge.rootNode.isConnected) {
-      return uc.StatusCodes.ServiceUnavailable;
-    }
 
     const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
     const levelControlClient = this.endpoint.getClusterClient(LevelControl.Complete);

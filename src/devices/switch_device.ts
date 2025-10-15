@@ -1,9 +1,9 @@
 import * as uc from "@unfoldedcircle/integration-api";
 import { OnOff } from "@matter/main/clusters";
+import { Endpoint } from "@project-chip/matter.js/device";
 
 import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
-import { Endpoint } from "@project-chip/matter.js/device";
 import { MatterDeviceType } from "./device_maps.js";
 
 export class SwitchDevice extends BaseDevice {
@@ -68,10 +68,6 @@ export class SwitchDevice extends BaseDevice {
     params?: { [key: string]: string | number | boolean | string[] }
   ): ReturnType<uc.CommandHandler> => {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
-
-    if (!this.matterBridge.rootNode.isConnected) {
-      return uc.StatusCodes.ServiceUnavailable;
-    }
 
     const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
 
