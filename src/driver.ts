@@ -23,11 +23,7 @@ driver.on(uc.Events.Disconnect, async () => {
 });
 
 driver.on(uc.Events.EnterStandby, async () => {
-  log.debug("Enter standby event%s.", isRunningOnRemote ? ", disconnecting all nodes" : "");
-
-  if (isRunningOnRemote) {
-    matter.controllerNode.disconnectAllNodes();
-  }
+  log.debug("Enter standby event.");
 });
 
 driver.on(uc.Events.ExitStandby, async () => {

@@ -115,11 +115,11 @@ export class LightDevice extends BaseDevice {
   ): ReturnType<uc.CommandHandler> => {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
-    const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
-    const levelControlClient = this.endpoint.getClusterClient(LevelControl.Complete);
-    const colorControlClient = this.endpoint.getClusterClient(ColorControl.Complete);
-
     try {
+      const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
+      const levelControlClient = this.endpoint.getClusterClient(LevelControl.Complete);
+      const colorControlClient = this.endpoint.getClusterClient(ColorControl.Complete);
+
       switch (cmdId) {
         case uc.LightCommands.Toggle:
           if (!onOffClient) return uc.StatusCodes.NotFound;

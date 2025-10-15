@@ -69,13 +69,13 @@ export class SwitchDevice extends BaseDevice {
   ): ReturnType<uc.CommandHandler> => {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
-    const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
-
-    if (!onOffClient) {
-      return uc.StatusCodes.NotFound;
-    }
-
     try {
+      const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
+
+      if (!onOffClient) {
+        return uc.StatusCodes.NotFound;
+      }
+
       switch (cmdId) {
         case uc.LightCommands.Toggle:
           onOffClient.toggle();
