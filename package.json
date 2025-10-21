@@ -5,9 +5,9 @@
   "description": "Matter integration for Unfolded Circle Remote",
   "module": "dist/driver.js",
   "dependencies": {
-    "@matter/main": "v0.15.5",
-    "@matter/nodejs": "v0.15.5",
-    "@project-chip/matter.js": "v0.15.5",
+    "@matter/main": "v0.15.6",
+    "@matter/nodejs": "v0.15.6",
+    "@project-chip/matter.js": "v0.15.6",
     "@unfoldedcircle/integration-api": "^0.3.0",
     "ioredis": "^5.8.0",
     "valkeyrie": "^0.7.1"

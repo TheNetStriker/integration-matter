@@ -1,6 +1,6 @@
 {
   "driver_id": "matter_driver",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "min_core_api": "0.20.0",
   "name": { "en": "Matter", "de": "Matter" },
   "icon": "custom:matter.png",
@@ -15,7 +15,7 @@
     "url": "https://www.github.com/TheNetStriker"
   },
   "home_page": "https://www.github.com/TheNetStriker/integration-matter",
-  "release_date": "2025-10-15",
+  "release_date": "2025-10-21",
   "setup_data_schema": {
     "title": {
       "en": "Integration setup",
