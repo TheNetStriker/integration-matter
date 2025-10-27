@@ -158,14 +158,7 @@ class ControllerNode {
     await this.commissioningController.start();
 
     // Connect to all commissioned nodes
-    for (const nodeId of this.commissioningController.getCommissionedNodes()) {
-      try {
-        let node = await this.commissioningController.getNode(nodeId);
-        await this.connectPairedNode(node);
-      } catch (e) {
-        log.error(e);
-      }
-    }
+    this.connectAllNodes();
 
     if (this.redisStorage) await this.redisStorage.bgSave();
 
@@ -313,7 +306,7 @@ class ControllerNode {
     for (const nodeId of this.commissioningController.getCommissionedNodes()) {
       try {
         let node = await this.commissioningController.getNode(nodeId);
-        node.connect();
+        this.connectPairedNode(node);
       } catch (e) {
         log.error(e);
       }
@@ -333,12 +326,10 @@ class ControllerNode {
     }
   }
 
-  async connectPairedNode(node: PairedNode) {
+  connectPairedNode(node: PairedNode) {
     if (!this.commissioningController) return;
 
-    if (!node.isConnected) {
-      node.connect();
-    }
+    node.connect();
 
     let structureChangedListener = this.structureChangeListeners.get(node.nodeId);
 
