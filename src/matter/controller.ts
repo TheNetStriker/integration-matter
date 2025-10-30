@@ -407,7 +407,7 @@ class ControllerNode {
         await matterBridge.rootNode.decommission();
       } catch (e) {
         if (forceRemove) {
-          this.commissioningController.removeNode(nodeId);
+          this.commissioningController.removeNode(nodeId, false);
         } else {
           throw e;
         }
