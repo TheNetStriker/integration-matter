@@ -76,7 +76,7 @@ export abstract class BaseDevice {
     } else if (matterBridge.productName == "MatterHub" && endpointSerialNumber) {
       entityIdentifier = endpointSerialNumber.toString();
     } else {
-      entityIdentifier = endpoint.number!.toString();
+      entityIdentifier = `${matterBridge.id}-${endpoint.number!.toString()}`;
     }
 
     const entityId = `${matterBridge.entityIdentifier}|${entityIdentifier}`;
