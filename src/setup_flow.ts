@@ -370,7 +370,7 @@ async function handleConfigurationMode(
       setupStep = SetupSteps.MATTER_STRUCTURE_DEBUG_OUTPUT;
       return userInputMatterStructureDebugOutput(choice);
     case "reset":
-      matter.controllerNode.reset();
+      await matter.controllerNode.reset();
       break;
     default:
       log.error(`Invalid configuration action: ${action}`);

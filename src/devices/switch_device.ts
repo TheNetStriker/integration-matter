@@ -78,13 +78,13 @@ export class SwitchDevice extends BaseDevice {
 
       switch (cmdId) {
         case uc.LightCommands.Toggle:
-          onOffClient.toggle();
+          await onOffClient.toggle();
           break;
         case uc.LightCommands.On:
-          onOffClient.on();
+          await onOffClient.on();
           break;
         case uc.LightCommands.Off:
-          onOffClient.off();
+          await onOffClient.off();
           break;
         default:
           return uc.StatusCodes.NotImplemented;

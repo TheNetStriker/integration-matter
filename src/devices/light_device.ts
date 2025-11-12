@@ -123,12 +123,12 @@ export class LightDevice extends BaseDevice {
       switch (cmdId) {
         case uc.LightCommands.Toggle:
           if (!onOffClient) return uc.StatusCodes.NotFound;
-          onOffClient.toggle();
+          await onOffClient.toggle();
           break;
         case uc.LightCommands.On:
           if (onOffClient && params?.brightness == 0) {
             // We have a brightness parameter of 0, turn the light off.
-            onOffClient.off();
+            await onOffClient.off();
             break;
           }
 
@@ -168,12 +168,12 @@ export class LightDevice extends BaseDevice {
             break;
           } else {
             if (!onOffClient) return uc.StatusCodes.NotFound;
-            onOffClient.on();
+            await onOffClient.on();
             break;
           }
         case uc.LightCommands.Off:
           if (!onOffClient) return uc.StatusCodes.NotFound;
-          onOffClient.off();
+          await onOffClient.off();
           break;
         default:
           return uc.StatusCodes.NotImplemented;

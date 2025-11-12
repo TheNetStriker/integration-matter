@@ -1,8 +1,5 @@
 // DeviceClassMap.ts
 import type { BaseDevice } from "./base_device.js";
-import type { LightDevice } from "./light_device.js";
-import type { SwitchDevice } from "./switch_device.js";
-import type { SensorDevice } from "./sensor_device.js";
 
 export enum MatterDeviceType {
   PowerSource = 17,

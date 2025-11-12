@@ -52,8 +52,11 @@ export class SensorDevice extends BaseDevice {
   }
 
   entityCmdHandler(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     entity: uc.Entity,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     cmdId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params?: { [key: string]: string | number | boolean | string[] }
   ): ReturnType<uc.CommandHandler> {
     throw new Error("Method not implemented.");

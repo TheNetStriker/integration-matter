@@ -30,7 +30,7 @@ driver.on(uc.Events.ExitStandby, async () => {
   log.debug("Exit standby event%s.", isRunningOnRemote ? ", reconnecting to all nodes" : "");
 
   if (isRunningOnRemote) {
-    matter.controllerNode.connectAllNodes();
+    await matter.controllerNode.connectAllNodes();
   }
 });
 

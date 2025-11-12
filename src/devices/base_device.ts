@@ -168,7 +168,7 @@ export abstract class BaseDevice {
 
     log.debug(`removeAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
 
-    for (const [entityAttribute, attributeListener] of this.attributeListenersMap) {
+    for (const [, attributeListener] of this.attributeListenersMap) {
       attributeListener.removeMethod(attributeListener.listener);
     }
 

@@ -5,7 +5,6 @@ import {
   LogFormat,
   Logger,
   LogLevel,
-  StorageContext,
   StorageService,
   Time
 } from "@matter/main";
@@ -158,7 +157,7 @@ class ControllerNode {
     await this.commissioningController.start();
 
     // Connect to all commissioned nodes
-    this.connectAllNodes();
+    await this.connectAllNodes();
 
     if (this.redisStorage) await this.redisStorage.bgSave();
 
@@ -407,7 +406,7 @@ class ControllerNode {
         await matterBridge.rootNode.decommission();
       } catch (e) {
         if (forceRemove) {
-          this.commissioningController.removeNode(nodeId, false);
+          await this.commissioningController.removeNode(nodeId, false);
         } else {
           throw e;
         }
@@ -416,7 +415,7 @@ class ControllerNode {
       if (this.redisStorage) await this.redisStorage.bgSave();
 
       if (this.removeMatterBridgeHandler) {
-        this.removeMatterBridgeHandler(matterBridge);
+        await this.removeMatterBridgeHandler(matterBridge);
       }
 
       let structureChangedListener = this.structureChangeListeners.get(matterBridge.rootNode.nodeId);

@@ -23,7 +23,8 @@ export default [
 
     rules: {
       "prettier/prettier": "error",
-      "@typescript-eslint/no-unused-vars": "error"
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/no-floating-promises": "error"
     },
 
     settings: {

@@ -124,7 +124,7 @@ async function removeMatterBridge(matterBridge: matter.MatterBridge | null, remo
       var configuredEntities = driver.getConfiguredEntities();
       var availableEntities = driver.getAvailableEntities();
 
-      for (let [key, device] of configuredMatterBridge.devices.entries()) {
+      for (let [, device] of configuredMatterBridge.devices.entries()) {
         if (device.deviceInfo.entityId && removeEntites) {
           configuredEntities.removeEntity(device.deviceInfo.entityId);
           availableEntities.removeEntity(device.deviceInfo.entityId);

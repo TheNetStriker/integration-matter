@@ -1,5 +1,5 @@
 import { Valkeyrie } from "valkeyrie";
-import { Bytes, Storage, StorageError, SupportedStorageTypes } from "@matter/general";
+import { Storage, StorageError, SupportedStorageTypes } from "@matter/general";
 
 export class ValkeyrieStorage implements Storage {
   private client!: Valkeyrie;
@@ -97,7 +97,7 @@ export class ValkeyrieStorage implements Storage {
 
   async clearAll(contexts: string[]): Promise<void> {
     for await (const entry of this.client.list({ prefix: contexts })) {
-      this.client.delete(entry.key);
+      await this.client.delete(entry.key);
     }
   }
 
