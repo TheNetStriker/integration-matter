@@ -61,6 +61,9 @@ export async function getDeviceClass(type: MatterDeviceType): Promise<DeviceClas
     case MatterDeviceType.HumiditySensor:
       return (await import("./sensor_device.js")).SensorDevice;
 
+    case MatterDeviceType.WindowCovering:
+      return (await import("./cover_device.js")).CoverDevice;
+
     default:
       return undefined;
   }

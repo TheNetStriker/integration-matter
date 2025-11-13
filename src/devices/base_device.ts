@@ -50,7 +50,7 @@ export abstract class BaseDevice {
   public abstract addAttributeListeners(): void;
   abstract getEntityAttributes(
     options: GetEntityAttributeOptions
-  ): Promise<{ [key: string]: string | number | boolean }>;
+  ): Promise<{ [key: string]: string | number | boolean | string[] }>;
   abstract hasAttribute(attribute: string): boolean;
   abstract entityCmdHandler(
     entity: uc.Entity,
@@ -109,8 +109,7 @@ export abstract class BaseDevice {
     );
     if (!matterToUcStateConverter) return;
 
-    let attributes: { [key: string]: string | number | boolean } = {};
-    attributes[entityAttribute] = matterToUcStateConverter(value);
+    let attributes = matterToUcStateConverter(this.endpoint, value);
 
     log.debug(
       `${MatterHelpers.getReadableEntityAttributeName(entityAttribute, true)} update value ${value} on entity ${this.deviceInfo.entityId}.`
@@ -175,7 +174,10 @@ export abstract class BaseDevice {
     this.attributeListenersMap.clear();
   }
 
-  protected async getEntityAttribute(options: GetEntityAttributeOptions, entityAttribute: string) {
+  protected async getEntityAttribute(
+    options: GetEntityAttributeOptions,
+    entityAttribute: string
+  ): Promise<string | number | boolean | string[] | undefined> {
     let getMatterAttribute = MatterHelpers.getMatterAttribute(this.entity.entity_type, entityAttribute, this.endpoint);
     let getMatterAttributeFromCache = MatterHelpers.getMatterAttributeFromCache(
       this.entity.entity_type,
@@ -192,11 +194,13 @@ export abstract class BaseDevice {
     if (!getMatterAttribute || !getMatterAttributeFromCache || !matterToUcStateConverter) return;
 
     let cachedValue = options.initFromMatterCache
-      ? matterToUcStateConverter(getMatterAttributeFromCache())
+      ? matterToUcStateConverter(this.endpoint, getMatterAttributeFromCache())[entityAttribute]
       : this.entityAttributes[entityAttribute];
 
     if (options.requestFromRemote) {
-      let remoteValue = matterToUcStateConverter(await getMatterAttribute(options.requestFromRemote));
+      let remoteValue = matterToUcStateConverter(this.endpoint, await getMatterAttribute(options.requestFromRemote))[
+        entityAttribute
+      ];
       let valueChanged = cachedValue != remoteValue;
 
       if (options.onlyReturnChangedAttributes && valueChanged) {
@@ -232,7 +236,7 @@ export abstract class BaseDevice {
   }
 
   async getEntityStateAttributes(entityAttributes: string[], options: GetEntityAttributeOptions) {
-    let attributes: { [key: string]: string | number | boolean } = {};
+    let attributes: { [key: string]: string | number | boolean | string[] } = {};
 
     for (let entityAttribute of entityAttributes) {
       if (this.hasAttribute(entityAttribute)) {
@@ -247,8 +251,8 @@ export abstract class BaseDevice {
     return attributes;
   }
 
-  updateEntityAttributes(attributes: { [key: string]: string | number | boolean }) {
-    if (driver.updateEntityAttributes(this.deviceInfo.entityId, attributes)) {
+  updateEntityAttributes(attributes: { [key: string]: string | number | boolean | string[] }) {
+    if (driver.updateEntityAttributes(this.deviceInfo.entityId, attributes as any)) {
       this.updateCachedEntityAttributes(attributes);
     }
   }

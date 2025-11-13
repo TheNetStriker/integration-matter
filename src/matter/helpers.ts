@@ -3,9 +3,16 @@ import {
   LevelControl,
   OnOff,
   TemperatureMeasurement,
-  RelativeHumidityMeasurement
+  RelativeHumidityMeasurement,
+  WindowCovering
 } from "@matter/main/clusters";
-import { EntityType, LightAttributes, SensorAttributes, SensorDeviceClasses } from "@unfoldedcircle/integration-api";
+import {
+  CoverAttributes,
+  EntityType,
+  LightAttributes,
+  SensorAttributes,
+  SensorDeviceClasses
+} from "@unfoldedcircle/integration-api";
 import { Endpoint } from "@project-chip/matter.js/device";
 import { MatterValueConverters } from "./converters.js";
 import { MatterDeviceType } from "../devices/device_maps.js";
@@ -15,7 +22,7 @@ export class MatterHelpers {
     entityType: string,
     entityAttribute: string,
     endpointDeviceType: number
-  ): ((value: any) => any) | undefined {
+  ): ((endpoint: Endpoint, value: any) => { [key: string]: string | number | boolean }) | undefined {
     switch (entityType) {
       case EntityType.Switch:
         return MatterValueConverters.matterOnOffToUcSwitchState;
@@ -42,6 +49,15 @@ export class MatterHelpers {
                 return MatterValueConverters.matterHumidityToUc;
             }
           }
+        }
+      case EntityType.Cover:
+        switch (entityAttribute) {
+          case CoverAttributes.State:
+            return MatterValueConverters.matterWindowCoveringToUcCoverState;
+          case CoverAttributes.Position:
+            return MatterValueConverters.matterWindowCoveringCurrentPositionToUcCoverPosition;
+          case CoverAttributes.TiltPosition:
+            return MatterValueConverters.matterWindowCoveringCurrentPositionTiltToUcCoverTiltPosition;
         }
     }
   }
@@ -93,6 +109,15 @@ export class MatterHelpers {
                 return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)?.getMeasuredValueAttribute;
             }
         }
+      case EntityType.Cover:
+        switch (entityAttribute) {
+          case CoverAttributes.State:
+            return endpoint.getClusterClient(WindowCovering.Complete)?.getTargetPositionLiftPercent100thsAttribute;
+          case CoverAttributes.Position:
+            return endpoint.getClusterClient(WindowCovering.Complete)?.getCurrentPositionLiftPercent100thsAttribute;
+          case CoverAttributes.TiltPosition:
+            return endpoint.getClusterClient(WindowCovering.Complete)?.getCurrentPositionTiltPercent100thsAttribute;
+        }
     }
   }
 
@@ -127,6 +152,18 @@ export class MatterHelpers {
                 return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)
                   ?.getMeasuredValueAttributeFromCache;
             }
+        }
+      case EntityType.Cover:
+        switch (entityAttribute) {
+          case CoverAttributes.State:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.getTargetPositionLiftPercent100thsAttributeFromCache;
+          case CoverAttributes.Position:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.getCurrentPositionLiftPercent100thsAttributeFromCache;
+          case CoverAttributes.TiltPosition:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.getCurrentPositionTiltPercent100thsAttributeFromCache;
         }
     }
   }
@@ -163,6 +200,18 @@ export class MatterHelpers {
                   ?.addMeasuredValueAttributeListener;
             }
         }
+      case EntityType.Cover:
+        switch (entityAttribute) {
+          case CoverAttributes.State:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.addTargetPositionLiftPercent100thsAttributeListener;
+          case CoverAttributes.Position:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.addCurrentPositionLiftPercent100thsAttributeListener;
+          case CoverAttributes.TiltPosition:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.addCurrentPositionTiltPercent100thsAttributeListener;
+        }
     }
   }
 
@@ -198,6 +247,18 @@ export class MatterHelpers {
                   ?.removeMeasuredValueAttributeListener;
             }
         }
+      case EntityType.Cover:
+        switch (entityAttribute) {
+          case CoverAttributes.State:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.removeTargetPositionLiftPercent100thsAttributeListener;
+          case CoverAttributes.Position:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.removeCurrentPositionLiftPercent100thsAttributeListener;
+          case CoverAttributes.TiltPosition:
+            return endpoint.getClusterClient(WindowCovering.Complete)
+              ?.removeCurrentPositionTiltPercent100thsAttributeListener;
+        }
     }
   }
 
@@ -220,5 +281,9 @@ export class MatterHelpers {
     }
 
     return readableEntityAttributeName;
+  }
+
+  static isNumber(value: unknown): value is number {
+    return typeof value === "number" && Number.isFinite(value);
   }
 }
