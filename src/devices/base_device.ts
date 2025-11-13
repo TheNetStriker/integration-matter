@@ -75,6 +75,8 @@ export abstract class BaseDevice {
       entityIdentifier = endpointProductName.replace(" ", "_");
     } else if (matterBridge.productName == "MatterHub" && endpointSerialNumber) {
       entityIdentifier = endpointSerialNumber.toString();
+    } else if (matterBridge.vendorName == "ioBroker" && endpointSerialNumber) {
+      entityIdentifier = endpointSerialNumber.toString();
     } else {
       entityIdentifier = `${matterBridge.id}-${endpoint.number!.toString()}`;
     }
