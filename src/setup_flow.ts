@@ -57,6 +57,15 @@ async function userInputDriverConfig(): Promise<uc.RequestUserInput> {
     },
     {
       field: {
+        checkbox: {
+          value: config.coverPercentInverted
+        }
+      },
+      id: "coverPercentInverted",
+      label: { en: "Cover percent inverted", de: "Rolladen prozent invertieren" }
+    },
+    {
+      field: {
         dropdown: {
           value: config.driverLogLevel.toString(),
           items: [
@@ -297,6 +306,7 @@ async function handleDriverConfigDataResponse(msg: uc.UserDataResponse): Promise
   const lightTransitionTime = msg.inputValues["lightTransitionTime"];
   const matterFabricLabel = msg.inputValues["matterFabricLabel"];
   const temperatureUnit = msg.inputValues["temperatureUnit"];
+  const coverPercentInverted = msg.inputValues["coverPercentInverted"];
   const driverLogLevel = msg.inputValues["driverLogLevel"];
   const matterLogLevel = msg.inputValues["matterLogLevel"];
   const ucapiLogLevel = msg.inputValues["ucapiLogLevel"];
@@ -308,6 +318,7 @@ async function handleDriverConfigDataResponse(msg: uc.UserDataResponse): Promise
   config.matterFabricLabel = matterFabricLabel;
   config.lightTransitionTime = Number(lightTransitionTime);
   config.temperatureUnit = Number(temperatureUnit);
+  config.coverPercentInverted = coverPercentInverted === "true";
   config.driverLogLevel = Number(driverLogLevel);
   config.matterLogLevel = Number(matterLogLevel);
   config.ucapiLogLevel = Number(ucapiLogLevel);

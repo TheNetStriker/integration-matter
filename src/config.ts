@@ -19,6 +19,7 @@ class DriverSettings {
   // in tenths of a second
   lightTransitionTime: number = 10;
   temperatureUnit: TemperatureUnit = TemperatureUnit.Celcius;
+  coverPercentInverted: boolean = false;
   driverLogLevel: number = 4;
   matterLogLevel: number = 4;
   ucapiLogLevel: number = 4;

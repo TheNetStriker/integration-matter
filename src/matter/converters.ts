@@ -164,9 +164,19 @@ export class MatterValueConverters {
   ): { [key: string]: string | number | boolean } {
     var coverState = CoverStates.Unknown;
     const windowCoveringClient = endpoint.getClusterClient(WindowCovering.Complete);
+    const coverPercentInverted = driverConfig.get().coverPercentInverted;
+
+    if (MatterHelpers.isNumber(targetPosition) && coverPercentInverted) {
+      targetPosition = 10000 - targetPosition;
+    }
 
     if (windowCoveringClient) {
-      const currentPosition = windowCoveringClient.getCurrentPositionLiftPercent100thsAttributeFromCache();
+      let currentPosition = windowCoveringClient.getCurrentPositionLiftPercent100thsAttributeFromCache();
+
+      if (MatterHelpers.isNumber(currentPosition) && coverPercentInverted) {
+        currentPosition = 10000 - currentPosition;
+      }
+
       coverState = MatterValueConverters.matterWindowCoveringPositionsToUcCoverState(currentPosition, targetPosition);
     }
 
@@ -178,15 +188,24 @@ export class MatterValueConverters {
     currentPosition: number | undefined
   ): { [key: string]: string | number | boolean } {
     let attributes: { [key: string]: string | number | boolean } = {};
+    const coverPercentInverted = driverConfig.get().coverPercentInverted;
 
     if (MatterHelpers.isNumber(currentPosition)) {
+      if (coverPercentInverted) {
+        currentPosition = 10000 - currentPosition;
+      }
+
       attributes[CoverAttributes.Position] = currentPosition * 0.01;
     }
 
     const windowCoveringClient = endpoint.getClusterClient(WindowCovering.Complete);
 
     if (windowCoveringClient) {
-      const targetPosition = windowCoveringClient.getTargetPositionLiftPercent100thsAttributeFromCache();
+      let targetPosition = windowCoveringClient.getTargetPositionLiftPercent100thsAttributeFromCache();
+
+      if (MatterHelpers.isNumber(targetPosition) && coverPercentInverted) {
+        targetPosition = 10000 - targetPosition;
+      }
 
       attributes[CoverAttributes.State] = MatterValueConverters.matterWindowCoveringPositionsToUcCoverState(
         currentPosition,

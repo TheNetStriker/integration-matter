@@ -5,6 +5,7 @@ import { Endpoint } from "@project-chip/matter.js/device";
 import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
 import { MatterValueConverters } from "../matter/converters.js";
+import { driverConfig } from "../config.js";
 
 export class CoverDevice extends BaseDevice {
   addAttributeListeners() {
@@ -123,10 +124,14 @@ export class CoverDevice extends BaseDevice {
           break;
         case uc.CoverCommands.Position:
           if (params?.position != undefined && typeof params?.position === "number") {
+            let position = params.position;
+
+            if (driverConfig.get().coverPercentInverted) {
+              position = 100 - position;
+            }
+
             await windowCoveringClient.goToLiftPercentage({
-              liftPercent100thsValue: MatterValueConverters.ucCoverPositionToMatterWindowCoveringPosition(
-                params.position
-              )
+              liftPercent100thsValue: MatterValueConverters.ucCoverPositionToMatterWindowCoveringPosition(position)
             });
           }
           break;
