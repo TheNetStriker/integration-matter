@@ -10,6 +10,7 @@ import {
 } from "@matter/main";
 import { BasicInformation, GeneralCommissioning } from "@matter/main/clusters";
 import { ManualPairingCodeCodec, NodeId } from "@matter/main/types";
+import { AsyncObserver, Observer } from "@matter/general";
 import { CommissioningController, NodeCommissioningOptions } from "@project-chip/matter.js";
 import { Endpoint, PairedNode } from "@project-chip/matter.js/device";
 import fs from "fs";
@@ -56,7 +57,7 @@ class ControllerNode {
   private addMatterBridgeHandler: ((matterBridge: MatterBridge) => Promise<void>) | null = null;
   private removeMatterBridgeHandler: ((matterBridge: MatterBridge | null) => Promise<void>) | null = null;
   private updateMatterBridgeHandler: ((matterBridge: MatterBridge) => Promise<void>) | null = null;
-  private structureChangeListeners = new Map<NodeId, () => Promise<void>>();
+  private structureChangeListeners = new Map<NodeId, AsyncObserver<[void], void>>();
 
   constructor() {
     this.environment = Environment.default;
@@ -128,7 +129,7 @@ class ControllerNode {
     let config = driverConfig.get();
 
     if (!config.matterUniqueId || !config.matterFabricLabel) {
-      config.matterUniqueId = Time.nowMs().toString();
+      config.matterUniqueId = Time.nowMs.toString();
       config.matterFabricLabel = defaultFabriclabel;
 
       driverConfig.update(config);
@@ -275,7 +276,7 @@ class ControllerNode {
     let node = await this.commissioningController.getNode(nodeId);
 
     if (node) {
-      node.events.initializedFromRemote.then(async () => {
+      void node.events.initializedFromRemote.then(async () => {
         var matterBridge = await this.getMatterBridge(nodeId);
 
         if (this.addMatterBridgeHandler && matterBridge) {
@@ -289,7 +290,7 @@ class ControllerNode {
         node.logStructure();
       });
 
-      await this.connectPairedNode(node);
+      this.connectPairedNode(node);
 
       return nodeId;
     } else {
@@ -345,7 +346,7 @@ class ControllerNode {
         }
       };
 
-      node.events.structureChanged.on(structureChangedListener);
+      node.events.structureChanged.on(structureChangedListener as Observer<[void], void>);
 
       this.structureChangeListeners.set(node.nodeId, structureChangedListener);
     }
@@ -421,7 +422,7 @@ class ControllerNode {
       let structureChangedListener = this.structureChangeListeners.get(matterBridge.rootNode.nodeId);
 
       if (structureChangedListener) {
-        matterBridge.rootNode.events.structureChanged.off(structureChangedListener);
+        matterBridge.rootNode.events.structureChanged.off(structureChangedListener as Observer<[void], void>);
         this.structureChangeListeners.delete(matterBridge.rootNode.nodeId);
       }
     }
@@ -444,7 +445,7 @@ class ControllerNode {
       let structureChangedListener = this.structureChangeListeners.get(rootNode.nodeId);
 
       if (structureChangedListener) {
-        rootNode.events.structureChanged.off(structureChangedListener);
+        rootNode.events.structureChanged.off(structureChangedListener as Observer<[void], void>);
       }
     }
 

@@ -10,6 +10,8 @@ rm -r ./dist/tar
 rm ./dist/*.tar.gz
 mkdir ./dist/tar
 echo $VERSION > ./dist/tar/version.txt
+mkdir ./dist/tar/config
+touch ./dist/tar/config/init
 cp driver.json ./dist/tar/
 cp matter.png ./dist/tar/
 npx esbuild src/driver.ts \
@@ -30,6 +32,5 @@ npm install supports-color debug bonjour-service ws --omit=dev --prefix ./dist/t
 rm ./dist/tar/bin/package.json
 rm ./dist/tar/bin/package-lock.json
 tar -C ./dist/tar -czvf ${FILE_NAME} ./
-mkdir ./dist/tar/config
 touch ./dist/tar/config/reset
 tar -C ./dist/tar -czvf ${FILE_NAME_RESET} ./

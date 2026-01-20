@@ -103,6 +103,24 @@ function checkConfigReset() {
   }
 }
 
+function checkIsInitialized() {
+  // Check if init file exists in config directory.
+  // If it exists the integration was reinstalled and controller will be started later in setup.
+  let driverIsInitialized = true;
+
+  if (process.env.UC_CONFIG_HOME) {
+    const initFile = path.join(process.env.UC_CONFIG_HOME, "init");
+
+    if (fs.existsSync(initFile)) {
+      driverIsInitialized = false;
+      log.warn("Init file exists, start matter controller later in setup.");
+      fs.rmSync(initFile);
+    }
+  }
+
+  return driverIsInitialized;
+}
+
 async function main() {
   try {
     checkConfigReset();
@@ -111,7 +129,9 @@ async function main() {
     driverConfig.init(dataDirPath);
     driverConfig.setLogLevels();
 
-    await initializeAndStartMatterController(false);
+    if (checkIsInitialized()) {
+      await initializeAndStartMatterController(false);
+    }
 
     driver.init("driver.json", driverSetupHandler);
 

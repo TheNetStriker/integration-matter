@@ -1,12 +1,13 @@
 /**
  * @license
- * Copyright 2022-2025 Matter.js Authors
+ * Copyright 2022-2026 Matter.js Authors
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import {
+  Bytes,
   InternalError,
-  MaybeAsyncStorage,
+  Storage,
   StorageBackendMemory,
   SupportedStorageTypes,
   Time,
@@ -16,7 +17,7 @@ import {
 } from "@matter/general";
 import { readFile, rename, writeFile } from "node:fs/promises";
 
-export class StorageBackendAsyncJsonFile extends MaybeAsyncStorage {
+export class StorageBackendAsyncJsonFile extends Storage {
   /** We store changes after a value was set to the storage, but not more often than this setting (in ms). */
   private closed = false;
   private store?: StorageBackendMemory;
@@ -27,7 +28,7 @@ export class StorageBackendAsyncJsonFile extends MaybeAsyncStorage {
     super();
   }
 
-  override async initialize() {
+  async initialize() {
     let data: any = {};
     try {
       data = this.fromJson(await readFile(this.path, "utf8"));
@@ -40,23 +41,45 @@ export class StorageBackendAsyncJsonFile extends MaybeAsyncStorage {
     }
     this.store = new StorageBackendMemory(data);
     this.store.initialize();
-    this.lastStoredTime = Time.nowMs();
+    this.lastStoredTime = Time.nowMs;
   }
 
   get initialized() {
     return this.store?.initialized ?? false;
   }
 
-  override async get<T extends SupportedStorageTypes>(contexts: string[], key: string): Promise<T | undefined> {
+  override async has(contexts: string[], key: string): Promise<boolean> {
     if (this.store === undefined) {
       throw new InternalError("Storage not initialized.");
     }
-    return this.store.get<T>(contexts, key);
+    return this.store.has(contexts, key);
   }
 
-  override async set(contexts: string[], key: string, value: SupportedStorageTypes): Promise<void>;
-  override async set(contexts: string[], values: Record<string, SupportedStorageTypes>): Promise<void>;
-  override async set(
+  override async get(contexts: string[], key: string): Promise<SupportedStorageTypes | undefined> {
+    if (this.store === undefined) {
+      throw new InternalError("Storage not initialized.");
+    }
+    return this.store.get(contexts, key);
+  }
+
+  async openBlob(contexts: string[], key: string): Promise<Blob> {
+    if (this.store === undefined) {
+      throw new InternalError("Storage not initialized.");
+    }
+    return this.store.openBlob(contexts, key);
+  }
+
+  async writeBlobFromStream(contexts: string[], key: string, stream: ReadableStream<Bytes>) {
+    if (this.store === undefined) {
+      throw new InternalError("Storage not initialized.");
+    }
+    await this.store.writeBlobFromStream(contexts, key, stream);
+    await this.commit();
+  }
+
+  set(contexts: string[], key: string, value: SupportedStorageTypes): Promise<void>;
+  set(contexts: string[], values: Record<string, SupportedStorageTypes>): Promise<void>;
+  async set(
     contexts: string[],
     keyOrValues: string | Record<string, SupportedStorageTypes>,
     value?: SupportedStorageTypes
@@ -104,7 +127,7 @@ export class StorageBackendAsyncJsonFile extends MaybeAsyncStorage {
       throw new InternalError("Storage not initialized.");
     }
     if (this.closed) return;
-    if (!forced && this.lastStoredTime > Time.nowMs() - 1000) {
+    if (!forced && this.lastStoredTime > Time.nowMs - 1000) {
       return;
     }
     if (this.currentStoreItPromise !== undefined) {
@@ -117,7 +140,7 @@ export class StorageBackendAsyncJsonFile extends MaybeAsyncStorage {
       .then(resolver, rejecter)
       .finally(() => {
         this.currentStoreItPromise = undefined;
-        this.lastStoredTime = Time.nowMs();
+        this.lastStoredTime = Time.nowMs;
       });
     this.currentStoreItPromise = promise;
     return promise;

@@ -1,5 +1,5 @@
 import { Valkeyrie } from "valkeyrie";
-import { Storage, StorageError, SupportedStorageTypes } from "@matter/general";
+import { Bytes, Storage, StorageError, SupportedStorageTypes } from "@matter/general";
 
 export class ValkeyrieStorage implements Storage {
   private client!: Valkeyrie;
@@ -101,31 +101,30 @@ export class ValkeyrieStorage implements Storage {
     }
   }
 
-  // Will be needed in matter-js 0.16
-  // async has(contexts: string[], key: string): Promise<boolean> {
-  //   let result = await this.client.get([...contexts, key]);
-  //   return result.value != null;
-  // }
+  async has(contexts: string[], key: string): Promise<boolean> {
+    let result = await this.client.get([...contexts, key]);
+    return result.value != null;
+  }
 
-  // async openBlob(contexts: string[], key: string): Promise<Blob> {
-  //   const data = await this.client.get<Buffer>([...contexts, key]);
+  async openBlob(contexts: string[], key: string): Promise<Blob> {
+    const data = await this.client.get<Buffer>([...contexts, key]);
 
-  //   if (data.value == null) {
-  //     return new Blob();
-  //   }
+    if (data.value == null) {
+      return new Blob();
+    }
 
-  //   return new Blob([new Uint8Array(data.value)]);
-  // }
+    return new Blob([new Uint8Array(data.value)]);
+  }
 
-  // async writeBlobFromStream(contexts: string[], key: string, stream: ReadableStream<Bytes>): Promise<void> {
-  //   const chunks: Uint8Array[] = [];
+  async writeBlobFromStream(contexts: string[], key: string, stream: ReadableStream<Bytes>): Promise<void> {
+    const chunks: Uint8Array[] = [];
 
-  //   for await (const chunk of stream as any) {
-  //     chunks.push(chunk);
-  //   }
+    for await (const chunk of stream as any) {
+      chunks.push(chunk);
+    }
 
-  //   const buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+    const buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
 
-  //   await this.client.set([...contexts, key], buffer);
-  // }
+    await this.client.set([...contexts, key], buffer);
+  }
 }

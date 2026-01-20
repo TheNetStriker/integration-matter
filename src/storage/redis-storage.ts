@@ -1,5 +1,5 @@
 import ioredis from "ioredis";
-import { Storage, StorageError, SupportedStorageTypes, fromJson, toJson } from "@matter/general";
+import { Bytes, Storage, StorageError, SupportedStorageTypes, fromJson, toJson } from "@matter/general";
 
 const notInitializedError = new StorageError("Storage not initialized!");
 
@@ -105,39 +105,38 @@ export class RedisStorage implements Storage {
     await this.client.del(keys);
   }
 
-  // Will be needed in matter-js 0.16
-  // async has(contexts: string[], key: string): Promise<boolean> {
-  //   if (!this.client) throw notInitializedError;
-  //   const hashKey = this.buildRedisHashKey(contexts);
-  //   const exists = await this.client.hexists(hashKey, key);
-  //   return exists == 1;
-  // }
+  async has(contexts: string[], key: string): Promise<boolean> {
+    if (!this.client) throw notInitializedError;
+    const hashKey = this.buildRedisHashKey(contexts);
+    const exists = await this.client.hexists(hashKey, key);
+    return exists == 1;
+  }
 
-  // async openBlob(contexts: string[], key: string): Promise<Blob> {
-  //   if (!this.client) throw notInitializedError;
-  //   const hashKey = this.buildRedisHashKey(contexts);
-  //   const data = await this.client.hgetBuffer(hashKey, key);
+  async openBlob(contexts: string[], key: string): Promise<Blob> {
+    if (!this.client) throw notInitializedError;
+    const hashKey = this.buildRedisHashKey(contexts);
+    const data = await this.client.hgetBuffer(hashKey, key);
 
-  //   if (!data) {
-  //     return new Blob();
-  //   }
+    if (!data) {
+      return new Blob();
+    }
 
-  //   return new Blob([new Uint8Array(data)]);
-  // }
+    return new Blob([new Uint8Array(data)]);
+  }
 
-  // async writeBlobFromStream(contexts: string[], key: string, stream: ReadableStream<Bytes>): Promise<void> {
-  //   if (!this.client) throw notInitializedError;
-  //   const hashKey = this.buildRedisHashKey(contexts);
-  //   const chunks: Uint8Array[] = [];
+  async writeBlobFromStream(contexts: string[], key: string, stream: ReadableStream<Bytes>): Promise<void> {
+    if (!this.client) throw notInitializedError;
+    const hashKey = this.buildRedisHashKey(contexts);
+    const chunks: Uint8Array[] = [];
 
-  //   for await (const chunk of stream as any) {
-  //     chunks.push(chunk);
-  //   }
+    for await (const chunk of stream as any) {
+      chunks.push(chunk);
+    }
 
-  //   const buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+    const buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
 
-  //   await this.client.hset(hashKey, key, buffer);
-  // }
+    await this.client.hset(hashKey, key, buffer);
+  }
 
   bgSave(): Promise<string> {
     if (!this.client) throw notInitializedError;
