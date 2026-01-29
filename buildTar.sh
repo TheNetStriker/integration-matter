@@ -26,6 +26,7 @@ npx esbuild src/driver.ts \
   --external:ws \
   --external:ioredis \
   --external:valkeyrie \
+  --external:./node_modules/@matter/nodejs/dist/esm/storage/sqlite/platform/BunSqlite.js \
   --external:./src/storage/redis-storage.ts \
   --external:./src/storage/valkeyrie-storage.ts
 npm install supports-color debug bonjour-service ws --omit=dev --prefix ./dist/tar/bin

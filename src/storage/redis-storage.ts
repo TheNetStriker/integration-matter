@@ -105,6 +105,11 @@ export class RedisStorage implements Storage {
     await this.client.del(keys);
   }
 
+  async clear(): Promise<void> {
+    if (!this.client) throw notInitializedError;
+    await this.client.flushdb();
+  }
+
   async has(contexts: string[], key: string): Promise<boolean> {
     if (!this.client) throw notInitializedError;
     const hashKey = this.buildRedisHashKey(contexts);

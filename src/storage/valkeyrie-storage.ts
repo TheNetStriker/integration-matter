@@ -1,5 +1,5 @@
 import { Valkeyrie } from "valkeyrie";
-import { Bytes, Storage, StorageError, SupportedStorageTypes } from "@matter/general";
+import { Bytes, MaybePromise, Storage, StorageError, SupportedStorageTypes } from "@matter/general";
 
 export class ValkeyrieStorage implements Storage {
   private client!: Valkeyrie;
@@ -99,6 +99,10 @@ export class ValkeyrieStorage implements Storage {
     for await (const entry of this.client.list({ prefix: contexts })) {
       await this.client.delete(entry.key);
     }
+  }
+
+  clear(): MaybePromise<void> {
+    return this.client.clear();
   }
 
   async has(contexts: string[], key: string): Promise<boolean> {
