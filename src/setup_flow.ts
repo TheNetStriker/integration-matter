@@ -8,11 +8,12 @@ import { driverConfig } from "./config.js";
 
 enum SetupSteps {
   INIT = 0,
-  DRIVER_CONFIG = 1,
-  MATTER_SETUP = 2,
-  MATTER_COMMISSIONING = 3,
-  MATTER_STRUCTURE_DEBUG_OUTPUT = 4,
-  CONFIGURATION_MODE = 5
+  WAIT_FOR_CONTROLLER_STARTUP = 1,
+  DRIVER_CONFIG = 2,
+  MATTER_SETUP = 3,
+  MATTER_COMMISSIONING = 4,
+  MATTER_STRUCTURE_DEBUG_OUTPUT = 5,
+  CONFIGURATION_MODE = 6
 }
 
 var setupStep = SetupSteps.INIT;
@@ -188,9 +189,40 @@ async function handleDriverConfigRequest(msg: uc.DriverSetupRequest): Promise<uc
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
   if (!matter.controllerNode.isInitialized()) {
-    await initializeAndStartMatterController(true);
+    setupStep = SetupSteps.WAIT_FOR_CONTROLLER_STARTUP;
+
+    void initializeAndStartMatterController(true);
+
+    return new uc.RequestUserInput({ en: "Please wait", de: "Bitte warten" }, [
+      {
+        id: "waitForMatterController",
+        label: {
+          en: "Please wait",
+          de: "Bitte warten"
+        },
+        field: {
+          label: {
+            value: {
+              en: "The Matter Controller is initializing. This can take some time. Please wait a minute before clicking on the next button.",
+              de: "Der Matter Controller wird initialisiert. Dies kann eine Weile dauern. Bitte warten sie eine Minute bis sie auf weiter drücken."
+            }
+          }
+        }
+      }
+    ]);
   }
 
+  return handleMatterConfigRequest();
+}
+
+/**
+ * Start driver config setup.
+ *
+ * Initiated by the UC Remote to set up the driver.
+ * @param {uc.DriverSetupRequest} msg value(s) of input fields in the first setup screen.
+ * @return the SetupAction on how to continue
+ */
+async function handleMatterConfigRequest(): Promise<uc.SetupAction> {
   if (reconfigure) {
     var matterControllerStarted = await waitForMatterControllerStart();
     if (!matterControllerStarted) {
@@ -420,6 +452,10 @@ const driverSetupHandler = async function (msg: any): Promise<uc.SetupAction> {
 
     if (msg instanceof uc.UserDataResponse) {
       log.debug("UserDataResponse: %s %s", msg, setupStep);
+
+      if (setupStep == SetupSteps.WAIT_FOR_CONTROLLER_STARTUP) {
+        return await handleMatterConfigRequest();
+      }
 
       if (setupStep == SetupSteps.DRIVER_CONFIG && "matterLogLevel" in msg.inputValues) {
         return await handleDriverConfigDataResponse(msg);

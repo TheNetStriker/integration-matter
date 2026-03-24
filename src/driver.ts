@@ -66,6 +66,8 @@ driver.on(uc.Events.UnsubscribeEntities, async (entityIds: string[]) => {
 });
 
 async function initializeAndStartMatterController(initalizeConfig: boolean) {
+  log.debug("Initializing Matter Controller.");
+
   var controllerInitialized = await matter.controllerNode.init(
     initalizeConfig,
     onMatterBridgeAdded,
@@ -84,6 +86,8 @@ async function initializeAndStartMatterController(initalizeConfig: boolean) {
       }
     }
   }
+
+  log.debug("Matter Controller initialized.");
 }
 
 function checkConfigReset() {
