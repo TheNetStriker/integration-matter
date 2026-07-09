@@ -1,13 +1,27 @@
 import { Valkeyrie } from "valkeyrie";
-import { Bytes, MaybePromise, Storage, StorageError, SupportedStorageTypes } from "@matter/general";
+import { Bytes, Environment, MaybePromise, StorageError, SupportedStorageTypes } from "@matter/general";
 
-export class ValkeyrieStorage implements Storage {
+export class ValkeyrieStorage {
   private client!: Valkeyrie;
   private dbPath: string;
   private _initialized = false;
 
-  constructor(private path: string) {
-    this.dbPath = path;
+  private static _instance: ValkeyrieStorage | undefined;
+
+  constructor() {
+    this.dbPath = Environment.default.vars.get("valkeyrie.path", "matter.sqlite3");
+  }
+
+  static get instance(): ValkeyrieStorage {
+    if (!this._instance) {
+      this._instance = new ValkeyrieStorage();
+    }
+
+    return this._instance;
+  }
+
+  static get instanceCreated(): boolean {
+    return this._instance != undefined;
   }
 
   get initialized(): boolean {
@@ -59,7 +73,7 @@ export class ValkeyrieStorage implements Storage {
     }
   }
 
-  async delete(contexts: string[], key: string): Promise<void> {
+  async delete(contexts: readonly string[], key: string): Promise<void> {
     await this.client.delete([...contexts, key]);
   }
 
@@ -105,7 +119,7 @@ export class ValkeyrieStorage implements Storage {
     return this.client.clear();
   }
 
-  async has(contexts: string[], key: string): Promise<boolean> {
+  async has(contexts: readonly string[], key: string): Promise<boolean> {
     let result = await this.client.get([...contexts, key]);
     return result.value != null;
   }

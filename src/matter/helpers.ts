@@ -85,38 +85,38 @@ export class MatterHelpers {
   ): ((...args: any[]) => any) | undefined {
     switch (entityType) {
       case EntityType.Switch:
-        return endpoint.getClusterClient(OnOff.Complete)?.getOnOffAttribute;
+        return endpoint.getClusterClient(OnOff)?.getOnOffAttribute;
       case EntityType.Light:
         switch (entityAttribute) {
           case LightAttributes.State:
-            return endpoint.getClusterClient(OnOff.Complete)?.getOnOffAttribute;
+            return endpoint.getClusterClient(OnOff)?.getOnOffAttribute;
           case LightAttributes.Brightness:
-            return endpoint.getClusterClient(LevelControl.Complete)?.getCurrentLevelAttribute;
+            return endpoint.getClusterClient(LevelControl)?.getCurrentLevelAttribute;
           case LightAttributes.Hue:
-            return endpoint.getClusterClient(ColorControl.Complete)?.getCurrentHueAttribute;
+            return endpoint.getClusterClient(ColorControl)?.getCurrentHueAttribute;
           case LightAttributes.Saturation:
-            return endpoint.getClusterClient(ColorControl.Complete)?.getCurrentSaturationAttribute;
+            return endpoint.getClusterClient(ColorControl)?.getCurrentSaturationAttribute;
           case LightAttributes.ColorTemperature:
-            return endpoint.getClusterClient(ColorControl.Complete)?.getColorTemperatureMiredsAttribute;
+            return endpoint.getClusterClient(ColorControl)?.getColorTemperatureMiredsAttribute;
         }
       case EntityType.Sensor:
         switch (entityAttribute) {
           case SensorAttributes.Value:
             switch (endpoint.deviceType.valueOf()) {
               case MatterDeviceType.TemperatureSensor:
-                return endpoint.getClusterClient(TemperatureMeasurement.Complete)?.getMeasuredValueAttribute;
+                return endpoint.getClusterClient(TemperatureMeasurement)?.getMeasuredValueAttribute;
               case MatterDeviceType.HumiditySensor:
-                return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)?.getMeasuredValueAttribute;
+                return endpoint.getClusterClient(RelativeHumidityMeasurement)?.getMeasuredValueAttribute;
             }
         }
       case EntityType.Cover:
         switch (entityAttribute) {
           case CoverAttributes.State:
-            return endpoint.getClusterClient(WindowCovering.Complete)?.getTargetPositionLiftPercent100thsAttribute;
+            return endpoint.getClusterClient(WindowCovering)?.getTargetPositionLiftPercent100thsAttribute;
           case CoverAttributes.Position:
-            return endpoint.getClusterClient(WindowCovering.Complete)?.getCurrentPositionLiftPercent100thsAttribute;
+            return endpoint.getClusterClient(WindowCovering)?.getCurrentPositionLiftPercent100thsAttribute;
           case CoverAttributes.TiltPosition:
-            return endpoint.getClusterClient(WindowCovering.Complete)?.getCurrentPositionTiltPercent100thsAttribute;
+            return endpoint.getClusterClient(WindowCovering)?.getCurrentPositionTiltPercent100thsAttribute;
         }
     }
   }
@@ -128,42 +128,38 @@ export class MatterHelpers {
   ): ((...args: any[]) => any) | undefined {
     switch (entityType) {
       case EntityType.Switch:
-        return endpoint.getClusterClient(OnOff.Complete)?.getOnOffAttributeFromCache;
+        return endpoint.getClusterClient(OnOff)?.getOnOffAttributeFromCache;
       case EntityType.Light:
         switch (entityAttribute) {
           case LightAttributes.State:
-            return endpoint.getClusterClient(OnOff.Complete)?.getOnOffAttributeFromCache;
+            return endpoint.getClusterClient(OnOff)?.getOnOffAttributeFromCache;
           case LightAttributes.Brightness:
-            return endpoint.getClusterClient(LevelControl.Complete)?.getCurrentLevelAttributeFromCache;
+            return endpoint.getClusterClient(LevelControl)?.getCurrentLevelAttributeFromCache;
           case LightAttributes.Hue:
-            return endpoint.getClusterClient(ColorControl.Complete)?.getCurrentHueAttributeFromCache;
+            return endpoint.getClusterClient(ColorControl)?.getCurrentHueAttributeFromCache;
           case LightAttributes.Saturation:
-            return endpoint.getClusterClient(ColorControl.Complete)?.getCurrentSaturationAttributeFromCache;
+            return endpoint.getClusterClient(ColorControl)?.getCurrentSaturationAttributeFromCache;
           case LightAttributes.ColorTemperature:
-            return endpoint.getClusterClient(ColorControl.Complete)?.getColorTemperatureMiredsAttributeFromCache;
+            return endpoint.getClusterClient(ColorControl)?.getColorTemperatureMiredsAttributeFromCache;
         }
       case EntityType.Sensor:
         switch (entityAttribute) {
           case SensorAttributes.Value:
             switch (endpoint.deviceType.valueOf()) {
               case MatterDeviceType.TemperatureSensor:
-                return endpoint.getClusterClient(TemperatureMeasurement.Complete)?.getMeasuredValueAttributeFromCache;
+                return endpoint.getClusterClient(TemperatureMeasurement)?.getMeasuredValueAttributeFromCache;
               case MatterDeviceType.HumiditySensor:
-                return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)
-                  ?.getMeasuredValueAttributeFromCache;
+                return endpoint.getClusterClient(RelativeHumidityMeasurement)?.getMeasuredValueAttributeFromCache;
             }
         }
       case EntityType.Cover:
         switch (entityAttribute) {
           case CoverAttributes.State:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.getTargetPositionLiftPercent100thsAttributeFromCache;
+            return endpoint.getClusterClient(WindowCovering)?.getTargetPositionLiftPercent100thsAttributeFromCache;
           case CoverAttributes.Position:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.getCurrentPositionLiftPercent100thsAttributeFromCache;
+            return endpoint.getClusterClient(WindowCovering)?.getCurrentPositionLiftPercent100thsAttributeFromCache;
           case CoverAttributes.TiltPosition:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.getCurrentPositionTiltPercent100thsAttributeFromCache;
+            return endpoint.getClusterClient(WindowCovering)?.getCurrentPositionTiltPercent100thsAttributeFromCache;
         }
     }
   }
@@ -175,42 +171,38 @@ export class MatterHelpers {
   ): ((listener: any) => void) | undefined {
     switch (entityType) {
       case EntityType.Switch:
-        return endpoint.getClusterClient(OnOff.Complete)?.addOnOffAttributeListener;
+        return endpoint.getClusterClient(OnOff)?.addOnOffAttributeListener;
       case EntityType.Light:
         switch (entityAttribute) {
           case LightAttributes.State:
-            return endpoint.getClusterClient(OnOff.Complete)?.addOnOffAttributeListener;
+            return endpoint.getClusterClient(OnOff)?.addOnOffAttributeListener;
           case LightAttributes.Brightness:
-            return endpoint.getClusterClient(LevelControl.Complete)?.addCurrentLevelAttributeListener;
+            return endpoint.getClusterClient(LevelControl)?.addCurrentLevelAttributeListener;
           case LightAttributes.Hue:
-            return endpoint.getClusterClient(ColorControl.Complete)?.addCurrentHueAttributeListener;
+            return endpoint.getClusterClient(ColorControl)?.addCurrentHueAttributeListener;
           case LightAttributes.Saturation:
-            return endpoint.getClusterClient(ColorControl.Complete)?.addCurrentSaturationAttributeListener;
+            return endpoint.getClusterClient(ColorControl)?.addCurrentSaturationAttributeListener;
           case LightAttributes.ColorTemperature:
-            return endpoint.getClusterClient(ColorControl.Complete)?.addColorTemperatureMiredsAttributeListener;
+            return endpoint.getClusterClient(ColorControl)?.addColorTemperatureMiredsAttributeListener;
         }
       case EntityType.Sensor:
         switch (entityAttribute) {
           case SensorAttributes.Value:
             switch (endpoint.deviceType.valueOf()) {
               case MatterDeviceType.TemperatureSensor:
-                return endpoint.getClusterClient(TemperatureMeasurement.Complete)?.addMeasuredValueAttributeListener;
+                return endpoint.getClusterClient(TemperatureMeasurement)?.addMeasuredValueAttributeListener;
               case MatterDeviceType.HumiditySensor:
-                return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)
-                  ?.addMeasuredValueAttributeListener;
+                return endpoint.getClusterClient(RelativeHumidityMeasurement)?.addMeasuredValueAttributeListener;
             }
         }
       case EntityType.Cover:
         switch (entityAttribute) {
           case CoverAttributes.State:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.addTargetPositionLiftPercent100thsAttributeListener;
+            return endpoint.getClusterClient(WindowCovering)?.addTargetPositionLiftPercent100thsAttributeListener;
           case CoverAttributes.Position:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.addCurrentPositionLiftPercent100thsAttributeListener;
+            return endpoint.getClusterClient(WindowCovering)?.addCurrentPositionLiftPercent100thsAttributeListener;
           case CoverAttributes.TiltPosition:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.addCurrentPositionTiltPercent100thsAttributeListener;
+            return endpoint.getClusterClient(WindowCovering)?.addCurrentPositionTiltPercent100thsAttributeListener;
         }
     }
   }
@@ -222,42 +214,38 @@ export class MatterHelpers {
   ): ((listener: any) => void) | undefined {
     switch (entityType) {
       case EntityType.Switch:
-        return endpoint.getClusterClient(OnOff.Complete)?.removeOnOffAttributeListener;
+        return endpoint.getClusterClient(OnOff)?.removeOnOffAttributeListener;
       case EntityType.Light:
         switch (entityAttribute) {
           case LightAttributes.State:
-            return endpoint.getClusterClient(OnOff.Complete)?.removeOnOffAttributeListener;
+            return endpoint.getClusterClient(OnOff)?.removeOnOffAttributeListener;
           case LightAttributes.Brightness:
-            return endpoint.getClusterClient(LevelControl.Complete)?.removeCurrentLevelAttributeListener;
+            return endpoint.getClusterClient(LevelControl)?.removeCurrentLevelAttributeListener;
           case LightAttributes.Hue:
-            return endpoint.getClusterClient(ColorControl.Complete)?.removeCurrentHueAttributeListener;
+            return endpoint.getClusterClient(ColorControl)?.removeCurrentHueAttributeListener;
           case LightAttributes.Saturation:
-            return endpoint.getClusterClient(ColorControl.Complete)?.removeCurrentSaturationAttributeListener;
+            return endpoint.getClusterClient(ColorControl)?.removeCurrentSaturationAttributeListener;
           case LightAttributes.ColorTemperature:
-            return endpoint.getClusterClient(ColorControl.Complete)?.removeColorTemperatureMiredsAttributeListener;
+            return endpoint.getClusterClient(ColorControl)?.removeColorTemperatureMiredsAttributeListener;
         }
       case EntityType.Sensor:
         switch (entityAttribute) {
           case SensorAttributes.Value:
             switch (endpoint.deviceType.valueOf()) {
               case MatterDeviceType.TemperatureSensor:
-                return endpoint.getClusterClient(TemperatureMeasurement.Complete)?.removeMeasuredValueAttributeListener;
+                return endpoint.getClusterClient(TemperatureMeasurement)?.removeMeasuredValueAttributeListener;
               case MatterDeviceType.HumiditySensor:
-                return endpoint.getClusterClient(RelativeHumidityMeasurement.Complete)
-                  ?.removeMeasuredValueAttributeListener;
+                return endpoint.getClusterClient(RelativeHumidityMeasurement)?.removeMeasuredValueAttributeListener;
             }
         }
       case EntityType.Cover:
         switch (entityAttribute) {
           case CoverAttributes.State:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.removeTargetPositionLiftPercent100thsAttributeListener;
+            return endpoint.getClusterClient(WindowCovering)?.removeTargetPositionLiftPercent100thsAttributeListener;
           case CoverAttributes.Position:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.removeCurrentPositionLiftPercent100thsAttributeListener;
+            return endpoint.getClusterClient(WindowCovering)?.removeCurrentPositionLiftPercent100thsAttributeListener;
           case CoverAttributes.TiltPosition:
-            return endpoint.getClusterClient(WindowCovering.Complete)
-              ?.removeCurrentPositionTiltPercent100thsAttributeListener;
+            return endpoint.getClusterClient(WindowCovering)?.removeCurrentPositionTiltPercent100thsAttributeListener;
         }
     }
   }

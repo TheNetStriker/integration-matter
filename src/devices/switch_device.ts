@@ -70,7 +70,7 @@ export class SwitchDevice extends BaseDevice {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     try {
-      const onOffClient = this.endpoint.getClusterClient(OnOff.Complete);
+      const onOffClient = this.endpoint.getClusterClient(OnOff);
 
       if (!onOffClient) {
         return uc.StatusCodes.NotFound;

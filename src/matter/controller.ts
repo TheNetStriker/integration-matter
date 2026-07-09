@@ -18,8 +18,8 @@ import path from "path";
 
 import log from "../loggers.js";
 import type { RedisStorage } from "../storage/redis-storage.js";
-import { StorageBackendAsyncJsonFile } from "../storage/json-storage.js";
 import { driverConfig } from "../config.js";
+import { JsonFileStorageDriver } from "@matter/nodejs";
 
 class MatterBridge {
   id: NodeId;
@@ -71,23 +71,43 @@ class ControllerNode {
   ) {
     if (this.commissioningController) return;
 
+    const matterjsDir = path.join(process.env.UC_DATA_HOME || "./", "matter");
+    const matterjsConfigFile = path.join(matterjsDir, "config.json");
+
+    this.environment.vars.set("path.root", matterjsDir);
+    this.environment.vars.set("path.config", matterjsConfigFile);
+
     const storageService = this.environment.get(StorageService);
-    const environment = this.environment;
 
     const storageType = process.env.MATTER_STORAGE || "json";
 
-    log.info(`Using storage ${storageType}.`);
+    log.info(`Using storage ${storageType} location: ${storageService.location}.`);
 
     if (storageType == "json") {
-      const jsonStorageFile = path.join(process.env.UC_DATA_HOME || "./", "matter.json");
+      storageService.registerDriver(JsonFileStorageDriver);
+      storageService.configuredDriver = "json";
 
-      if (!initializeConfig && !fs.existsSync(jsonStorageFile)) {
+      const oldJsonStorageFile = path.join(process.env.UC_DATA_HOME || "./", "matter.json");
+
+      if (fs.existsSync(oldJsonStorageFile) && !fs.existsSync(matterjsDir) && driverConfig.matterUniqueId) {
+        log.warn(`Migrating old JSON storage file ${oldJsonStorageFile}.`);
+
+        const newConfigDir = path.join(matterjsDir, driverConfig.matterUniqueId);
+        fs.mkdirSync(newConfigDir, { recursive: true });
+        fs.copyFileSync(oldJsonStorageFile, path.join(newConfigDir, "storage.json"));
+
+        const jsonData = JSON.stringify({
+          kind: "json",
+          type: "kv"
+        });
+
+        fs.writeFileSync(path.join(newConfigDir, "driver.json"), jsonData);
+      }
+
+      if (!initializeConfig && !fs.existsSync(matterjsDir)) {
         // We do not initalize at this moment.
         return false;
       }
-
-      storageService.factory = () => new StorageBackendAsyncJsonFile(jsonStorageFile);
-      storageService.location = jsonStorageFile;
     } else if (storageType == "valkeyrie") {
       const valkeyrieStorageFile = path.join(process.env.UC_DATA_HOME || "./", "matter.sqlite3");
 
@@ -96,28 +116,27 @@ class ControllerNode {
         return false;
       }
 
-      let valkeyrieStorageLib = await import("../storage/valkeyrie-storage.js");
-      let valkeyrieStorage = new valkeyrieStorageLib.ValkeyrieStorage(valkeyrieStorageFile);
+      const { ValkeyrieStorageDriver } = await import("../storage/valkeyrie-storage-driver.js");
+      const { ValkeyrieBlobStorageDriver } = await import("../storage/valkeyrie-blob-storage-driver.js");
 
-      storageService.factory = () => valkeyrieStorage;
-      storageService.location = valkeyrieStorageFile;
-    } else if (storageType == "file") {
-      const fileDataDirectory = path.join(process.env.UC_DATA_HOME || "./", "matter");
+      storageService.registerDriver(ValkeyrieStorageDriver);
+      storageService.registerBlobDriver(ValkeyrieBlobStorageDriver);
+      storageService.configuredDriver = "valkeyrie";
+      storageService.configuredBlobDriver = "valkeyrie";
 
-      if (!initializeConfig && !fs.existsSync(fileDataDirectory)) {
-        // We do not initalize at this moment.
-        return false;
-      }
-
-      storageService.location = fileDataDirectory;
-
-      log.info(`Storage location: ${storageService.location} exists ${fs.existsSync(storageService.location)}`);
+      this.environment.vars.set("valkeyrie.path", valkeyrieStorageFile);
     } else if (storageType?.startsWith("redis://")) {
-      let redisStorageLib = await import("../storage/redis-storage.js");
-      this.redisStorage = new redisStorageLib.RedisStorage(storageType);
+      const { RedisStorage } = await import("../storage/redis-storage.js");
+      const { RedisStorageDriver } = await import("../storage/redis-storage-driver.js");
+      const { RedisBlobStorageDriver } = await import("../storage/redis-blob-storage-driver.js");
 
-      storageService.factory = () => this.redisStorage!;
-      storageService.location = storageType;
+      storageService.registerDriver(RedisStorageDriver);
+      storageService.registerBlobDriver(RedisBlobStorageDriver);
+      storageService.configuredDriver = "redis";
+      storageService.configuredBlobDriver = "redis";
+
+      this.redisStorage = RedisStorage.instance;
+      this.environment.vars.set("redis.url", storageType);
     }
 
     this.addMatterBridgeHandler = addMatterBridgeHandler;
@@ -139,7 +158,7 @@ class ControllerNode {
     /** Create Matter Controller Node and bind it to the Environment. */
     this.commissioningController = new CommissioningController({
       environment: {
-        environment,
+        environment: this.environment,
         id: config.matterUniqueId
       },
       autoConnect: false, // Do not auto connect to the commissioned nodes
@@ -370,7 +389,7 @@ class ControllerNode {
 
     const rootNode = await this.commissioningController.getNode(nodeId);
     const aggregatorEndpoint = rootNode.getDeviceById(1);
-    const basicInformationClient = rootNode.getRootClusterClient(BasicInformation.Complete);
+    const basicInformationClient = rootNode.getRootClusterClient(BasicInformation);
 
     if (!aggregatorEndpoint || !basicInformationClient) return undefined;
 

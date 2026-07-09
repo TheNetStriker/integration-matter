@@ -163,7 +163,7 @@ export class MatterValueConverters {
     targetPosition: number | undefined
   ): { [key: string]: string | number | boolean } {
     var coverState = CoverStates.Unknown;
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering.Complete);
+    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
     const coverPercentInverted = driverConfig.get().coverPercentInverted;
 
     if (MatterHelpers.isNumber(targetPosition) && coverPercentInverted) {
@@ -198,7 +198,7 @@ export class MatterValueConverters {
       attributes[CoverAttributes.Position] = currentPosition * 0.01;
     }
 
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering.Complete);
+    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
 
     if (windowCoveringClient) {
       let targetPosition = windowCoveringClient.getTargetPositionLiftPercent100thsAttributeFromCache();

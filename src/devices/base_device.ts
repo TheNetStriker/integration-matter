@@ -60,7 +60,7 @@ export abstract class BaseDevice {
 
   public static async initDeviceInfo(endpoint: Endpoint, matterBridge: MatterBridge): Promise<DeviceInfo> {
     const bridgedDeviceBasicInformationClient =
-      endpoint.getClusterClient(BridgedDeviceBasicInformation.Complete) ??
+      endpoint.getClusterClient(BridgedDeviceBasicInformation) ??
       (() => {
         throw new Error("No BridgedDeviceBasicInformation.");
       })();

@@ -5,10 +5,10 @@
   "description": "Matter integration for Unfolded Circle Remote",
   "module": "dist/driver.js",
   "dependencies": {
-    "@matter/main": "v0.16.10",
-    "@matter/nodejs": "v0.16.10",
-    "@project-chip/matter.js": "v0.16.10",
-    "@unfoldedcircle/integration-api": "^0.3.0",
+    "@matter/main": "v0.17.4",
+    "@matter/nodejs": "v0.17.4",
+    "@project-chip/matter.js": "v0.17.4",
+    "@unfoldedcircle/integration-api": "^0.5.0",
     "ioredis": "^5.8.0",
     "valkeyrie": "^0.7.1"
   },
@@ -25,6 +25,7 @@
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-config-semistandard": "^17.0.0",
+    "eslint-plugin-deprecation": "^3.0.0",
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-promise": "^6.6.0",
     "prettier": "^3.3.3",

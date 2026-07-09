@@ -1,15 +1,29 @@
 import ioredis from "ioredis";
-import { Bytes, Storage, StorageError, SupportedStorageTypes, fromJson, toJson } from "@matter/general";
+import { Bytes, Environment, StorageError, SupportedStorageTypes, fromJson, toJson } from "@matter/general";
 
 const notInitializedError = new StorageError("Storage not initialized!");
 
-export class RedisStorage implements Storage {
+export class RedisStorage {
   private redisUrl: string;
   private client: ioredis.Redis | undefined;
   private _initialized = false;
 
-  constructor(private url: string) {
-    this.redisUrl = url;
+  private static _instance: RedisStorage | undefined;
+
+  constructor() {
+    this.redisUrl = Environment.default.vars.get("redis.url", "redis://localhost:6379");
+  }
+
+  static get instance(): RedisStorage {
+    if (!this._instance) {
+      this._instance = new RedisStorage();
+    }
+
+    return this._instance;
+  }
+
+  static get instanceCreated(): boolean {
+    return this._instance != undefined;
   }
 
   get initialized(): boolean {
@@ -18,7 +32,7 @@ export class RedisStorage implements Storage {
 
   async initialize(): Promise<void> {
     if (!this._initialized) {
-      this.client = new ioredis.Redis(this.url);
+      this.client = new ioredis.Redis(this.redisUrl);
       this.client.on("error", (err) => {
         throw new StorageError(`Redis error: ${err}`);
       });
@@ -61,13 +75,13 @@ export class RedisStorage implements Storage {
     }
   }
 
-  async delete(contexts: string[], key: string): Promise<void> {
+  async delete(contexts: readonly string[], key: string): Promise<void> {
     if (!this.client) throw notInitializedError;
     const hashKey = this.buildRedisHashKey(contexts);
     await this.client.hdel(hashKey, key);
   }
 
-  async keys(contexts: string[]): Promise<string[]> {
+  async keys(contexts: readonly string[]): Promise<string[]> {
     if (!this.client) throw notInitializedError;
     const hashKey = this.buildRedisHashKey(contexts);
     return await this.client.hkeys(hashKey);
@@ -84,7 +98,7 @@ export class RedisStorage implements Storage {
     return result;
   }
 
-  async contexts(contexts: string[]): Promise<string[]> {
+  async contexts(contexts: readonly string[]): Promise<string[]> {
     if (!this.client) throw notInitializedError;
     const prefix = this.buildRedisPrefix(contexts);
     const keys = await this.client.keys(prefix + "*");
@@ -97,7 +111,7 @@ export class RedisStorage implements Storage {
     return Array.from(subContexts);
   }
 
-  async clearAll(contexts: string[]): Promise<void> {
+  async clearAll(contexts: readonly string[]): Promise<void> {
     if (!this.client) throw notInitializedError;
     const hashKey = this.buildRedisHashKey(contexts);
     const keys = await this.client.keys(hashKey + "*");
@@ -110,7 +124,7 @@ export class RedisStorage implements Storage {
     await this.client.flushdb();
   }
 
-  async has(contexts: string[], key: string): Promise<boolean> {
+  async has(contexts: readonly string[], key: string): Promise<boolean> {
     if (!this.client) throw notInitializedError;
     const hashKey = this.buildRedisHashKey(contexts);
     const exists = await this.client.hexists(hashKey, key);
@@ -148,11 +162,11 @@ export class RedisStorage implements Storage {
     return this.client.bgsave();
   }
 
-  buildRedisHashKey(contexts: string[]): string {
+  buildRedisHashKey(contexts: readonly string[]): string {
     return contexts.length ? contexts.join(":") : "root";
   }
 
-  buildRedisPrefix(contexts: string[]): string {
+  buildRedisPrefix(contexts: readonly string[]): string {
     return contexts.length ? contexts.join(":") + ":" : "";
   }
 }

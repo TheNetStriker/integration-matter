@@ -2,9 +2,6 @@ VERSION="v$(jq .version -r driver.json)"
 FILE_NAME="dist/integration-matter-${VERSION}.tar.gz"
 FILE_NAME_RESET="dist/integration-matter-reset-${VERSION}.tar.gz"
 
-#api_definitions.js has an "n" character at the start for some reason. This will fix this.
-sed -i 's/^n//' node_modules/@unfoldedcircle/integration-api/dist/mjs/lib/api_definitions.js
-
 npm run build
 rm -r ./dist/tar
 rm ./dist/*.tar.gz
@@ -28,7 +25,11 @@ npx esbuild src/driver.ts \
   --external:valkeyrie \
   --external:./node_modules/@matter/nodejs/dist/esm/storage/sqlite/platform/BunSqlite.js \
   --external:./src/storage/redis-storage.ts \
-  --external:./src/storage/valkeyrie-storage.ts
+  --external:./src/storage/redis-storage-driver.ts \
+  --external:./src/storage/redis-blob-storage-driver.ts \
+  --external:./src/storage/valkeyrie-storage.ts \
+  --external:./src/storage/valkeyrie-storage-driver.ts \
+  --external:./src/storage/valkeyrie-blob-storage-driver.ts
 npm install supports-color debug bonjour-service ws --omit=dev --prefix ./dist/tar/bin
 rm ./dist/tar/bin/package.json
 rm ./dist/tar/bin/package-lock.json

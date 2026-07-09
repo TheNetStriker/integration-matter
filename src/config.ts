@@ -38,6 +38,14 @@ class DriverConfig {
   }
 
   /**
+   * Return the matter unique id.
+   * @return {string}
+   */
+  get matterUniqueId(): string | undefined {
+    return this.#config.matterUniqueId;
+  }
+
+  /**
    * Return the configuration path.
    * @return {string}
    */

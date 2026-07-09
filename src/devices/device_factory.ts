@@ -61,7 +61,7 @@ async function onMatterBridgeAdded(matterBridge: matter.MatterBridge) {
 
 async function addMatterBridge(matterBridge: matter.MatterBridge, addEntites: boolean) {
   const nodeEndpoints = matterBridge.aggregatorEndpoint.getChildEndpoints();
-  const aggregatorEndpointDescriptor = matterBridge.aggregatorEndpoint.getClusterClient(Descriptor.Complete);
+  const aggregatorEndpointDescriptor = matterBridge.aggregatorEndpoint.getClusterClient(Descriptor);
 
   if (!nodeEndpoints || !aggregatorEndpointDescriptor) {
     return undefined;

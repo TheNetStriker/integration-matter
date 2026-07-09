@@ -29,22 +29,20 @@ export class CoverDevice extends BaseDevice {
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var coverFeatures: uc.CoverFeatures[] = [];
 
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering.Complete);
+    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
 
     if (windowCoveringClient) {
-      const windowCoveringFeatures = windowCoveringClient.getFeatureMapAttributeFromCache();
-
       coverFeatures.push(uc.CoverFeatures.Close, uc.CoverFeatures.Open, uc.CoverFeatures.Stop);
 
-      if (windowCoveringFeatures?.positionAwareLift) {
+      if (windowCoveringClient.supportedFeatures.positionAwareLift) {
         coverFeatures.push(uc.CoverFeatures.Position);
       }
 
-      if (windowCoveringFeatures?.tilt) {
+      if (windowCoveringClient.supportedFeatures.tilt) {
         coverFeatures.push(uc.CoverFeatures.Tilt, uc.CoverFeatures.TiltStop);
       }
 
-      if (windowCoveringFeatures?.positionAwareTilt) {
+      if (windowCoveringClient.supportedFeatures.positionAwareTilt) {
         coverFeatures.push(uc.CoverFeatures.TiltPosition);
       }
     }
@@ -109,7 +107,7 @@ export class CoverDevice extends BaseDevice {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     try {
-      const windowCoveringClient = this.endpoint.getClusterClient(WindowCovering.Complete);
+      const windowCoveringClient = this.endpoint.getClusterClient(WindowCovering);
 
       if (!windowCoveringClient) {
         return uc.StatusCodes.NotFound;

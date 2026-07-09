@@ -114,10 +114,17 @@ function checkIsInitialized() {
 
   if (process.env.UC_CONFIG_HOME) {
     const initFile = path.join(process.env.UC_CONFIG_HOME, "init");
+    const initializedFile = path.join(process.env.UC_CONFIG_HOME, "initialized");
 
     if (fs.existsSync(initFile)) {
-      driverIsInitialized = false;
-      log.warn("Init file exists, start matter controller later in setup.");
+      if (fs.existsSync(initializedFile)) {
+        log.warn("Integration was updated, starting matter controller directly.");
+      } else {
+        driverIsInitialized = false;
+        fs.writeFileSync(initializedFile, "");
+        log.warn("Integration was reinstalled, start matter controller later in setup.");
+      }
+
       fs.rmSync(initFile);
     }
   }
