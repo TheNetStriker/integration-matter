@@ -37,15 +37,15 @@ export class LightDevice extends BaseDevice {
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var lightFeatures: uc.LightFeatures[] = [];
 
-    if (endpoint.hasClusterClient(ColorControl.Complete)) {
+    if (endpoint.hasClusterClient(ColorControl)) {
       lightFeatures.push(uc.LightFeatures.Color, uc.LightFeatures.ColorTemperature);
     }
 
-    if (endpoint.hasClusterClient(LevelControl.Complete)) {
+    if (endpoint.hasClusterClient(LevelControl)) {
       lightFeatures.push(uc.LightFeatures.Dim);
     }
 
-    if (endpoint.hasClusterClient(OnOff.Complete)) {
+    if (endpoint.hasClusterClient(OnOff)) {
       lightFeatures.push(uc.LightFeatures.OnOff, uc.LightFeatures.Toggle);
     }
 

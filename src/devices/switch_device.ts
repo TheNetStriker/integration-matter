@@ -20,7 +20,7 @@ export class SwitchDevice extends BaseDevice {
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var switchFeatures: uc.SwitchFeatures[] = [];
 
-    if (endpoint.hasClusterClient(OnOff.Complete)) {
+    if (endpoint.hasClusterClient(OnOff)) {
       switchFeatures.push(uc.SwitchFeatures.OnOff, uc.SwitchFeatures.Toggle);
     }
 
