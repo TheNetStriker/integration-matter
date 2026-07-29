@@ -229,7 +229,7 @@ export abstract class BaseDevice {
     }
   }
 
-  async sendAttributes(options: GetEntityAttributeOptions) {
+  async refreshAllAttributes(options: GetEntityAttributeOptions) {
     let entityAttributes = await this.getEntityAttributes(options);
 
     if (Object.keys(entityAttributes).length) {

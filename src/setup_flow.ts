@@ -24,6 +24,38 @@ async function userInputDriverConfig(): Promise<uc.RequestUserInput> {
 
   return new uc.RequestUserInput({ en: "Driver configuration", de: "Treiber Konfiguration" }, [
     {
+      // max 32 characters
+      id: "matterFabricLabel",
+      label: { en: "Matter fabric label", de: "Matter fabric label" },
+      field: { text: { value: config.matterFabricLabel, regex: "^[A-Za-z0-9 ]{1,32}$" } }
+    },
+    {
+      field: {
+        checkbox: {
+          value: config.autoSubscribe
+        }
+      },
+      id: "autoSubscribe",
+      label: {
+        en: "Enable Live updates (Can cause problems when running on remote)",
+        de: "Live Update der Werte (Kann Probleme verursachen wenn die Integration auf der Fernbedienung läuft)"
+      }
+    },
+    {
+      // number between 5 and 3600
+      id: "backgroundRefreshInterval",
+      label: {
+        en: "Refresh interval in seconds for device values (between 5 and 3600, only needed when live update is disabled)",
+        de: "Aktualisierungsinterval in Sekunden für Werte der Geräte (Zwischen 5 and 3600, wird nur benötigt wenn Live Update deaktiviert ist)"
+      },
+      field: {
+        text: {
+          value: config.backgroundRefreshInterval.toString(),
+          regex: "^(?:3600|3[0-5]\\d{2}|[12]\\d{3}|[1-9]\\d{2}|[1-9]\\d|[5-9])$"
+        }
+      }
+    },
+    {
       // number between 0 and 65535
       id: "lightTransitionTime",
       label: {
@@ -36,12 +68,6 @@ async function userInputDriverConfig(): Promise<uc.RequestUserInput> {
           regex: "^(?:6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]?\\d{1,4}|0)$"
         }
       }
-    },
-    {
-      // max 32 characters
-      id: "matterFabricLabel",
-      label: { en: "Matter fabric label", de: "Matter fabric label" },
-      field: { text: { value: config.matterFabricLabel, regex: "^[A-Za-z0-9 ]{1,32}$" } }
     },
     {
       field: {
@@ -335,19 +361,29 @@ async function handleMatterConfigRequest(): Promise<uc.SetupAction> {
 }
 
 async function handleDriverConfigDataResponse(msg: uc.UserDataResponse): Promise<uc.SetupComplete | uc.SetupError> {
-  const lightTransitionTime = msg.inputValues["lightTransitionTime"];
   const matterFabricLabel = msg.inputValues["matterFabricLabel"];
+  const autoSubscribe = msg.inputValues["autoSubscribe"];
+  const backgroundRefreshInterval = msg.inputValues["backgroundRefreshInterval"];
+  const lightTransitionTime = msg.inputValues["lightTransitionTime"];
   const temperatureUnit = msg.inputValues["temperatureUnit"];
   const coverPercentInverted = msg.inputValues["coverPercentInverted"];
   const driverLogLevel = msg.inputValues["driverLogLevel"];
   const matterLogLevel = msg.inputValues["matterLogLevel"];
   const ucapiLogLevel = msg.inputValues["ucapiLogLevel"];
 
-  await matter.controllerNode.updateFabricLabel(matterFabricLabel);
-
   let config = driverConfig.get();
 
+  let autoSubscribeParsed = autoSubscribe === "true";
+  let backgroundRefreshIntervalParsed = Number(backgroundRefreshInterval);
+
+  let autoSubscribeChanged = config.autoSubscribe != autoSubscribeParsed;
+
+  await matter.controllerNode.updateFabricLabel(matterFabricLabel);
+  matter.controllerNode.setBackgroundRefreshTaskInterval(backgroundRefreshIntervalParsed);
+
   config.matterFabricLabel = matterFabricLabel;
+  config.autoSubscribe = autoSubscribeParsed;
+  config.backgroundRefreshInterval = backgroundRefreshIntervalParsed;
   config.lightTransitionTime = Number(lightTransitionTime);
   config.temperatureUnit = Number(temperatureUnit);
   config.coverPercentInverted = coverPercentInverted === "true";
@@ -360,6 +396,10 @@ async function handleDriverConfigDataResponse(msg: uc.UserDataResponse): Promise
   driverConfig.store();
 
   if (reconfigure || matter.controllerNode.isCommissioned()) {
+    if (autoSubscribeChanged) {
+      await matter.controllerNode.stop();
+      await matter.controllerNode.start();
+    }
     return new uc.SetupComplete();
   }
 

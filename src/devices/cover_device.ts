@@ -6,6 +6,7 @@ import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
 import { MatterValueConverters } from "../matter/converters.js";
 import { driverConfig } from "../config.js";
+import { ClosedError } from "@matter/main";
 
 export class CoverDevice extends BaseDevice {
   addAttributeListeners() {
@@ -156,6 +157,11 @@ export class CoverDevice extends BaseDevice {
       }
     } catch (e) {
       log.error(e);
+
+      if (e instanceof ClosedError) {
+        log.error("entityCmdHandler ClosedError " + e.cause);
+      }
+
       return uc.StatusCodes.ServiceUnavailable;
     }
 

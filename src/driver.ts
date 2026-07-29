@@ -24,6 +24,8 @@ driver.on(uc.Events.Disconnect, async () => {
 
 driver.on(uc.Events.EnterStandby, async () => {
   log.debug("Enter standby event.");
+
+  await matter.controllerNode.stopBackgroundRefreshTask();
 });
 
 driver.on(uc.Events.ExitStandby, async () => {
@@ -32,6 +34,8 @@ driver.on(uc.Events.ExitStandby, async () => {
   if (isRunningOnRemote) {
     await matter.controllerNode.connectAllNodes();
   }
+
+  matter.controllerNode.startBackgroundRefreshTask();
 });
 
 driver.on(uc.Events.SubscribeEntities, async (entityIds: string[]) => {
@@ -40,7 +44,7 @@ driver.on(uc.Events.SubscribeEntities, async (entityIds: string[]) => {
 
     if (matterDevice) {
       matterDevice.addAttributeListeners();
-      await matterDevice.sendAttributes({
+      await matterDevice.refreshAllAttributes({
         initFromMatterCache: false,
         requestFromRemote: isRunningOnRemote,
         onlyReturnChangedAttributes: false

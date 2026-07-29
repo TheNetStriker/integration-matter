@@ -20,6 +20,8 @@ import log from "../loggers.js";
 import type { RedisStorage } from "../storage/redis-storage.js";
 import { driverConfig } from "../config.js";
 import { JsonFileStorageDriver } from "@matter/nodejs";
+import { BackgroundTask } from "../background_task.js";
+import { configuredDevices, subscribedEntities } from "../globals.js";
 
 class MatterBridge {
   id: NodeId;
@@ -51,6 +53,7 @@ class MatterBridge {
 
 class ControllerNode {
   private environment: Environment;
+  private backgroundRefreshTask: BackgroundTask;
   private redisStorage: RedisStorage | undefined;
   private commissioningController: CommissioningController | undefined;
   private commissioningControllerStarted: boolean = false;
@@ -61,6 +64,33 @@ class ControllerNode {
 
   constructor() {
     this.environment = Environment.default;
+
+    this.backgroundRefreshTask = new BackgroundTask(60000, async (signal) => {
+      log.debug("Background refresh task starting.");
+
+      try {
+        for (const [matterBridgeDeviceId, matterBridgeDevice] of configuredDevices.entries()) {
+          for (const [deviceId, device] of matterBridgeDevice.devices) {
+            if (subscribedEntities.get(`${matterBridgeDeviceId}|${deviceId}`)) {
+              if (signal.aborted) {
+                log.debug("Background refresh task aborted.");
+                return;
+              }
+
+              await device.refreshAllAttributes({
+                initFromMatterCache: false,
+                onlyReturnChangedAttributes: false,
+                requestFromRemote: true
+              });
+            }
+          }
+        }
+      } catch (e) {
+        log.error(e);
+      }
+
+      log.debug("Background refresh task completed.");
+    });
   }
 
   async init(
@@ -161,6 +191,7 @@ class ControllerNode {
         environment: this.environment,
         id: config.matterUniqueId
       },
+      autoSubscribe: false,
       autoConnect: false, // Do not auto connect to the commissioned nodes
       adminFabricLabel: config.matterFabricLabel
     });
@@ -179,6 +210,8 @@ class ControllerNode {
     // Connect to all commissioned nodes
     await this.connectAllNodes();
 
+    this.startBackgroundRefreshTask();
+
     if (this.redisStorage) await this.redisStorage.bgSave();
 
     this.commissioningControllerStarted = true;
@@ -186,8 +219,17 @@ class ControllerNode {
     log.info(`node-matter Controller started`);
   }
 
+  startBackgroundRefreshTask() {
+    if (!driverConfig.autoSubscribe) {
+      this.setBackgroundRefreshTaskInterval(driverConfig.backgroundRefreshInterval);
+      this.backgroundRefreshTask.start();
+    }
+  }
+
   async stop() {
     if (!this.commissioningController) return;
+
+    await this.backgroundRefreshTask.stop();
 
     /** Stop the Matter Controller Node */
     await this.commissioningController.close();
@@ -195,6 +237,14 @@ class ControllerNode {
     this.commissioningControllerStarted = false;
 
     log.info(`node-matter Controller stopped`);
+  }
+
+  async stopBackgroundRefreshTask() {
+    return this.backgroundRefreshTask.stop();
+  }
+
+  setBackgroundRefreshTaskInterval(interval: number) {
+    this.backgroundRefreshTask.setInterval(interval * 1000);
   }
 
   async getNodeStructure(nodeId: NodeId) {
@@ -338,7 +388,9 @@ class ControllerNode {
     for (const nodeId of this.commissioningController.getCommissionedNodes()) {
       try {
         let node = await this.commissioningController.getNode(nodeId);
+        log.debug(`Disconnecting node ${node.id}`);
         await node.disconnect();
+        log.debug(`Node ${node.id} disconnected.`);
       } catch (e) {
         log.error(e);
       }
@@ -348,7 +400,7 @@ class ControllerNode {
   connectPairedNode(node: PairedNode) {
     if (!this.commissioningController) return;
 
-    node.connect();
+    node.connect({ autoSubscribe: driverConfig.autoSubscribe });
 
     let structureChangedListener = this.structureChangeListeners.get(node.nodeId);
 

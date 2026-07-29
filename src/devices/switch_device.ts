@@ -5,6 +5,7 @@ import { Endpoint } from "@project-chip/matter.js/device";
 import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
 import { MatterDeviceType } from "./device_maps.js";
+import { ClosedError } from "@matter/main";
 
 export class SwitchDevice extends BaseDevice {
   addAttributeListeners() {
@@ -91,6 +92,11 @@ export class SwitchDevice extends BaseDevice {
       }
     } catch (e) {
       log.error(e);
+
+      if (e instanceof ClosedError) {
+        log.error("entityCmdHandler ClosedError " + e.cause);
+      }
+
       return uc.StatusCodes.ServiceUnavailable;
     }
 

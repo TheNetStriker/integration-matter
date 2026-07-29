@@ -16,6 +16,8 @@ enum TemperatureUnit {
 class DriverSettings {
   matterUniqueId: string | undefined;
   matterFabricLabel: string | undefined;
+  autoSubscribe: boolean = false;
+  backgroundRefreshInterval: number = 60;
   // in tenths of a second
   lightTransitionTime: number = 10;
   temperatureUnit: TemperatureUnit = TemperatureUnit.Celcius;
@@ -43,6 +45,23 @@ class DriverConfig {
    */
   get matterUniqueId(): string | undefined {
     return this.#config.matterUniqueId;
+  }
+
+  /**
+   * Return if matter controller should auto subscribe.
+   * @return {boolean}
+   */
+  get autoSubscribe(): boolean {
+    return this.#config.autoSubscribe;
+  }
+
+  /**
+   * Return interval in seconds for backgroun refresh task of values.
+   * Only needed when autoSubscribe is false.
+   * @return {boolean}
+   */
+  get backgroundRefreshInterval(): number {
+    return this.#config.backgroundRefreshInterval;
   }
 
   /**
