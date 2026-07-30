@@ -1,18 +1,28 @@
 import {
+  ClientCacheBuffer,
   Diagnostic,
   Environment,
+  EndpointLifecycle,
   LogDestination,
   LogFormat,
   Logger,
   LogLevel,
+  Millis,
+  ServerNode,
+  ControllerBehavior,
+  ClientNode,
+  CommissioningClient,
+  NetworkClient,
   StorageService,
   Time
 } from "@matter/main";
-import { BasicInformation, GeneralCommissioning } from "@matter/main/clusters";
-import { ManualPairingCodeCodec, NodeId } from "@matter/main/types";
-import { AsyncObserver, Observer } from "@matter/general";
-import { CommissioningController, NodeCommissioningOptions } from "@project-chip/matter.js";
-import { Endpoint, PairedNode } from "@project-chip/matter.js/device";
+import { GeneralCommissioning } from "@matter/main/clusters";
+import { ManualPairingCodeCodec, NodeId, EndpointNumber } from "@matter/main/types";
+import { Read } from "@matter/protocol";
+import { BasicInformationClient } from "@matter/node/behaviors/basic-information";
+import { AdministratorCommissioningClient } from "@matter/node/behaviors/administrator-commissioning";
+import { DescriptorClient } from "@matter/node/behaviors/descriptor";
+import { Endpoint } from "@matter/node";
 import fs from "fs";
 import path from "path";
 
@@ -28,7 +38,7 @@ class MatterBridge {
   vendorName: string;
   productName: string;
   label: string;
-  rootNode: PairedNode;
+  rootNode: ClientNode;
   aggregatorEndpoint: Endpoint;
   entityIdentifier: string;
 
@@ -37,7 +47,7 @@ class MatterBridge {
     vendorName: string,
     productName: string,
     label: string,
-    rootNode: PairedNode,
+    rootNode: ClientNode,
     aggregatorEndpoint: Endpoint
   ) {
     this.id = id;
@@ -55,12 +65,15 @@ class ControllerNode {
   private environment: Environment;
   private backgroundRefreshTask: BackgroundTask;
   private redisStorage: RedisStorage | undefined;
-  private commissioningController: CommissioningController | undefined;
-  private commissioningControllerStarted: boolean = false;
+  private serverNode: ServerNode | undefined;
+  private serverNodeStarted: boolean = false;
   private addMatterBridgeHandler: ((matterBridge: MatterBridge) => Promise<void>) | null = null;
   private removeMatterBridgeHandler: ((matterBridge: MatterBridge | null) => Promise<void>) | null = null;
   private updateMatterBridgeHandler: ((matterBridge: MatterBridge) => Promise<void>) | null = null;
-  private structureChangeListeners = new Map<NodeId, AsyncObserver<[void], void>>();
+  private structureChangeListeners = new Map<string, () => void>();
+  // Maps peer ID → sorted endpoint numbers under the aggregator, set once the node first comes online.
+  // Used by the background task to detect structural changes when autoSubscribe is false.
+  private knownAggregatorEndpoints = new Map<string, number[]>();
 
   constructor() {
     this.environment = Environment.default;
@@ -69,6 +82,7 @@ class ControllerNode {
       log.debug("Background refresh task starting.");
 
       try {
+        // Refresh attribute values for all subscribed entities.
         for (const [matterBridgeDeviceId, matterBridgeDevice] of configuredDevices.entries()) {
           for (const [deviceId, device] of matterBridgeDevice.devices) {
             if (subscribedEntities.get(`${matterBridgeDeviceId}|${deviceId}`)) {
@@ -82,6 +96,91 @@ class ControllerNode {
                 onlyReturnChangedAttributes: false,
                 requestFromRemote: true
               });
+            }
+          }
+        }
+
+        // Check for structural changes (added/removed endpoints) on each commissioned node.
+        // With autoSubscribe disabled there are no push notifications, so we detect changes by
+        // comparing the current endpoint list against the snapshot taken when each node came online.
+        if (this.serverNode) {
+          for (const peer of this.serverNode.peers) {
+            if (signal.aborted) {
+              log.debug("Background refresh task aborted.");
+              return;
+            }
+
+            const peerAddress = peer.maybeStateOf(CommissioningClient)?.peerAddress;
+            if (!peerAddress) continue;
+
+            const peerId = peer.id as string;
+            const knownEndpointNums = this.knownAggregatorEndpoints.get(peerId);
+
+            // Skip nodes that haven't come online yet — no baseline to compare against.
+            if (!knownEndpointNums) continue;
+
+            const aggregator = peer.parts.get(1);
+            if (!aggregator) continue;
+
+            // Read the aggregator's Descriptor first. Its partsList lists the bridged device
+            // endpoints as direct children, so mutate() installs any newly added endpoints
+            // under the aggregator (their correct parent). Installing here first means that
+            // when the root read runs next, the new endpoints are already descendants of root
+            // via the aggregator, so the root's install path skips them (isAlreadyDescendant).
+            // Doing it the other way round causes a "already active" crash: the root read would
+            // install the new endpoint under root, and the subsequent aggregator read would try
+            // to re-initialize it as a child of the aggregator.
+            await aggregator.getStateOf(DescriptorClient);
+
+            // Read the root endpoint's Descriptor second. Its partsList is the flat list of ALL
+            // endpoints on the node, so ClientStructure.mutate() will schedule #erase() for any
+            // endpoints that have disappeared from the bridge since the last check. The erase
+            // fires endpoint.delete() which removes the endpoint from aggregator.parts.
+            // New endpoints installed in the step above are already descendants of root (via the
+            // aggregator) and are therefore skipped by the install path here.
+            await peer.getStateOf(DescriptorClient);
+
+            const currentEndpointNums = [...aggregator.parts].map((p) => p.number ?? 0).sort((a, b) => a - b);
+
+            const hasChanged =
+              currentEndpointNums.length !== knownEndpointNums.length ||
+              currentEndpointNums.some((n, i) => n !== knownEndpointNums[i]);
+
+            if (hasChanged) {
+              log.info(`Node ${peerAddress.nodeId} structure changed (detected during background refresh)`);
+
+              // Identify genuinely new endpoints before overwriting the snapshot.
+              const newEndpointNums = currentEndpointNums.filter((n) => !knownEndpointNums.includes(n));
+
+              // Update snapshot before async work so re-entrant ticks see the latest known state.
+              this.knownAggregatorEndpoints.set(peerId, currentEndpointNums);
+
+              // For each new endpoint: read all its attributes from the remote device.
+              // This drives ClientStructure.mutate() which (a) injects cluster behaviors such as
+              // BridgedDeviceBasicInformationClient onto the new endpoint objects and (b) persists
+              // the attribute data to storage via DatasourceCache.externalSet().
+              for (const newEndpointNum of newEndpointNums) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                for await (const _chunk of peer.interaction.read(
+                  Read(Read.Attribute({ endpoint: EndpointNumber(newEndpointNum) }))
+                )) {
+                  // Consume the async generator to drive mutate() to completion.
+                }
+              }
+
+              // Flush the ClientCacheBuffer so the attribute data written during the
+              // new-endpoint reads is persisted to storage immediately, without waiting
+              // for the periodic 20-minute timer to fire.
+              if (this.serverNode.env.has(ClientCacheBuffer)) {
+                await this.serverNode.env.get(ClientCacheBuffer).flush();
+              }
+
+              if (this.redisStorage) await this.redisStorage.bgSave();
+
+              const matterBridge = await this.getMatterBridge(peerAddress.nodeId);
+              if (this.updateMatterBridgeHandler && matterBridge) {
+                await this.updateMatterBridgeHandler(matterBridge);
+              }
             }
           }
         }
@@ -99,7 +198,7 @@ class ControllerNode {
     removeMatterBridgeHandler: (matterBridge: MatterBridge | null) => Promise<void>,
     updateMatterBridgeHandler: (matterBridge: MatterBridge) => Promise<void>
   ) {
-    if (this.commissioningController) return;
+    if (this.serverNode) return;
 
     const matterjsDir = path.join(process.env.UC_DATA_HOME || "./", "matter");
     const matterjsConfigFile = path.join(matterjsDir, "config.json");
@@ -185,27 +284,29 @@ class ControllerNode {
       driverConfig.store();
     }
 
-    /** Create Matter Controller Node and bind it to the Environment. */
-    this.commissioningController = new CommissioningController({
-      environment: {
-        environment: this.environment,
-        id: config.matterUniqueId
+    /** Create Matter Controller ServerNode with ControllerBehavior and bind it to the Environment. */
+    this.serverNode = await ServerNode.create(ServerNode.RootEndpoint.with(ControllerBehavior), {
+      environment: this.environment,
+      id: config.matterUniqueId,
+      controller: {
+        adminFabricLabel: config.matterFabricLabel
       },
-      autoSubscribe: false,
-      autoConnect: false, // Do not auto connect to the commissioned nodes
-      adminFabricLabel: config.matterFabricLabel
+      commissioning: {
+        enabled: false // The controller node is never directly commissionable
+      },
+      sessions: { intervals: { idleInterval: Millis(1000), activeThreshold: Millis(65535) } }
     });
 
-    log.info(`node-matter Controller initialized`);
+    log.info(`Matter Client API Controller initialized`);
 
     return true;
   }
 
   async start() {
-    if (!this.commissioningController || this.commissioningControllerStarted) return;
+    if (!this.serverNode || this.serverNodeStarted) return;
 
     /** Start the Matter Controller Node */
-    await this.commissioningController.start();
+    await this.serverNode.start();
 
     // Connect to all commissioned nodes
     await this.connectAllNodes();
@@ -214,9 +315,9 @@ class ControllerNode {
 
     if (this.redisStorage) await this.redisStorage.bgSave();
 
-    this.commissioningControllerStarted = true;
+    this.serverNodeStarted = true;
 
-    log.info(`node-matter Controller started`);
+    log.info(`Matter Client API Controller started`);
   }
 
   startBackgroundRefreshTask() {
@@ -227,16 +328,16 @@ class ControllerNode {
   }
 
   async stop() {
-    if (!this.commissioningController) return;
+    if (!this.serverNode) return;
 
     await this.backgroundRefreshTask.stop();
 
     /** Stop the Matter Controller Node */
-    await this.commissioningController.close();
+    await this.serverNode.close();
 
-    this.commissioningControllerStarted = false;
+    this.serverNodeStarted = false;
 
-    log.info(`node-matter Controller stopped`);
+    log.info(`Matter Client API Controller stopped`);
   }
 
   async stopBackgroundRefreshTask() {
@@ -248,9 +349,12 @@ class ControllerNode {
   }
 
   async getNodeStructure(nodeId: NodeId) {
-    if (!this.commissioningController) return undefined;
+    if (!this.serverNode) return undefined;
 
-    let node = await this.commissioningController.getNode(nodeId);
+    const clientNode = this.getClientNodeById(nodeId);
+    if (!clientNode) return undefined;
+
+    // Use legacy PairedNode wrapper for logStructure() output
     let nodeStructureLog: string | undefined;
 
     Logger.destinations.temp = LogDestination({
@@ -261,16 +365,26 @@ class ControllerNode {
       format: LogFormat("plain")
     });
 
-    node.logStructure();
+    this.logClientNodeStructure(clientNode, nodeStructureLog);
     delete Logger.destinations.temp;
 
     return nodeStructureLog;
   }
 
-  async updateFabricLabel(label: string) {
-    if (!this.commissioningController) return;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private logClientNodeStructure(clientNode: ClientNode, _out: string | undefined) {
+    // Traverse the ClientNode's endpoint tree and log it using matter.js Logger
+    const nodeId = clientNode.peerAddress?.nodeId;
+    Logger.get("ClientNode").info(`Node ${nodeId}:`);
+    for (const part of clientNode.parts) {
+      Logger.get("ClientNode").info(`  Endpoint ${part.number}: ${[...part.parts].map((p) => p.number).join(", ")}`);
+    }
+  }
 
-    await this.commissioningController.updateFabricLabel(label);
+  async updateFabricLabel(label: string) {
+    if (!this.serverNode) return;
+
+    await this.serverNode.setStateOf(ControllerBehavior, { adminFabricLabel: label });
   }
 
   getLogLevel(): LogLevel {
@@ -282,31 +396,43 @@ class ControllerNode {
   }
 
   isCommissioned() {
-    if (!this.commissioningController) return false;
+    if (!this.serverNode) return false;
 
-    return this.commissioningController.isCommissioned();
+    return this.serverNode.peers.size > 0;
   }
 
   isStarted() {
-    if (!this.commissioningController) return false;
+    if (!this.serverNode) return false;
 
-    return this.commissioningControllerStarted;
+    return this.serverNodeStarted;
   }
 
   isInitialized() {
-    return !!this.commissioningController;
+    return !!this.serverNode;
+  }
+
+  /**
+   * Get a ClientNode from the peer set by NodeId.
+   */
+  private getClientNodeById(nodeId: NodeId): ClientNode | undefined {
+    if (!this.serverNode) return undefined;
+
+    for (const peer of this.serverNode.peers) {
+      const peerAddress = peer.maybeStateOf(CommissioningClient)?.peerAddress;
+      if (peerAddress && peerAddress.nodeId === nodeId) {
+        return peer;
+      }
+    }
+    return undefined;
   }
 
   async pair(pairingCode: string): Promise<NodeId | undefined> {
-    if (!this.commissioningController) return undefined;
+    if (!this.serverNode) return undefined;
 
-    // Collect commissioning options from commandline parameters
-    const commissioningOptions: NodeCommissioningOptions["commissioning"] = {
-      regulatoryLocation: GeneralCommissioning.RegulatoryLocationType.IndoorOutdoor,
-      regulatoryCountryCode: "XX"
-    };
+    let longDiscriminator: number | undefined;
+    let setupPin: number | undefined;
+    let shortDiscriminator: number | undefined;
 
-    let longDiscriminator, setupPin, shortDiscriminator;
     if (pairingCode !== undefined) {
       const pairingCodeCodec = ManualPairingCodeCodec.decode(pairingCode);
       shortDiscriminator = pairingCodeCodec.shortDiscriminator;
@@ -321,61 +447,53 @@ class ControllerNode {
       );
     }
 
-    const options: NodeCommissioningOptions = {
-      commissioning: commissioningOptions,
-      discovery: {
-        identifierData:
-          longDiscriminator !== undefined
-            ? { longDiscriminator }
-            : shortDiscriminator !== undefined
-              ? { shortDiscriminator }
-              : {},
-        discoveryCapabilities: { onIpNetwork: true }
-      },
-      passcode: setupPin
-    };
-
     console.time("Commissioning took");
 
-    log.info(`Commissioning ... ${Diagnostic.json(options)}`);
-    let nodeId = await this.commissioningController.commissionNode(options, { connectNodeAfterCommissioning: false });
+    log.info(`Commissioning with discriminator ${shortDiscriminator ?? longDiscriminator} ...`);
+
+    const clientNode = await this.serverNode.peers.commission({
+      passcode: setupPin,
+      ...(longDiscriminator !== undefined ? { longDiscriminator } : { shortDiscriminator }),
+      regulatoryLocation: GeneralCommissioning.RegulatoryLocationType.IndoorOutdoor,
+      regulatoryCountryCode: "XX",
+      discoveryCapabilities: { onIpNetwork: true },
+      autoSubscribe: false // Do not auto subscribe; connection is managed explicitly
+    });
+
+    const nodeId = clientNode.peerAddress?.nodeId;
+
+    if (!nodeId) {
+      log.error("Commissioning completed but nodeId is undefined");
+      return undefined;
+    }
 
     log.info(`Commissioning successfully done with nodeId ${nodeId}`);
 
-    let node = await this.commissioningController.getNode(nodeId);
+    // Listen for the node coming online to set up the bridge
+    clientNode.lifecycle.online.on(async () => {
+      var matterBridge = await this.getMatterBridge(nodeId);
 
-    if (node) {
-      void node.events.initializedFromRemote.then(async () => {
-        var matterBridge = await this.getMatterBridge(nodeId);
+      if (this.addMatterBridgeHandler && matterBridge) {
+        await this.addMatterBridgeHandler(matterBridge);
+      }
 
-        if (this.addMatterBridgeHandler && matterBridge) {
-          await this.addMatterBridgeHandler(matterBridge);
-        }
+      if (this.redisStorage) await this.redisStorage.bgSave();
 
-        if (this.redisStorage) await this.redisStorage.bgSave();
+      console.timeEnd("Commissioning took");
+      log.info(`Node ${nodeId} successfully initialized`);
+    });
 
-        console.timeEnd("Commissioning took");
-        log.info(`Node ${nodeId} successfully initialized`);
-        node.logStructure();
-      });
+    this.connectClientNode(clientNode);
 
-      this.connectPairedNode(node);
-
-      return nodeId;
-    } else {
-      log.info(`Node ${nodeId} not connecting`);
-    }
-
-    return undefined;
+    return nodeId;
   }
 
   async connectAllNodes() {
-    if (!this.commissioningController) return;
+    if (!this.serverNode) return;
 
-    for (const nodeId of this.commissioningController.getCommissionedNodes()) {
+    for (const peer of this.serverNode.peers) {
       try {
-        let node = await this.commissioningController.getNode(nodeId);
-        this.connectPairedNode(node);
+        this.connectClientNode(peer);
       } catch (e) {
         log.error(e);
       }
@@ -383,52 +501,167 @@ class ControllerNode {
   }
 
   async disconnectAllNodes() {
-    if (!this.commissioningController) return;
+    if (!this.serverNode) return;
 
-    for (const nodeId of this.commissioningController.getCommissionedNodes()) {
+    for (const peer of this.serverNode.peers) {
       try {
-        let node = await this.commissioningController.getNode(nodeId);
-        log.debug(`Disconnecting node ${node.id}`);
-        await node.disconnect();
-        log.debug(`Node ${node.id} disconnected.`);
+        const nodeId = peer.peerAddress?.nodeId;
+        log.debug(`Disconnecting node ${nodeId}`);
+        await peer.disable();
+        log.debug(`Node ${nodeId} disconnected.`);
       } catch (e) {
         log.error(e);
       }
     }
   }
 
-  connectPairedNode(node: PairedNode) {
-    if (!this.commissioningController) return;
+  connectClientNode(clientNode: ClientNode) {
+    if (!this.serverNode) return;
 
-    node.connect({ autoSubscribe: driverConfig.autoSubscribe });
+    const peerId = clientNode.id as string;
 
-    let structureChangedListener = this.structureChangeListeners.get(node.nodeId);
+    // Configure subscription mode before enabling
+    void clientNode
+      .setStateOf(NetworkClient, { autoSubscribe: driverConfig.autoSubscribe })
+      .then(() => clientNode.enable())
+      .catch((e) => log.error(`Failed to enable node ${clientNode.peerAddress?.nodeId}: ${e}`));
 
-    if (!structureChangedListener) {
-      structureChangedListener = async () => {
-        log.info(`Node ${node.nodeId} structure changed`);
+    if (driverConfig.autoSubscribe) {
+      if (!this.structureChangeListeners.has(peerId)) {
+        // With subscriptions active the controller receives push notifications, so we can react to
+        // structure changes immediately via the lifecycle event.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const structureChangedListener = (type: EndpointLifecycle.Change, _endpoint: Endpoint): void => {
+          if (
+            type === EndpointLifecycle.Change.Installed ||
+            type === EndpointLifecycle.Change.Destroyed ||
+            type === EndpointLifecycle.Change.ServersChanged ||
+            type === EndpointLifecycle.Change.ClientsChanged
+          ) {
+            const nodeId = clientNode.peerAddress?.nodeId;
+            log.info(`Node ${nodeId} structure changed (${type})`);
 
-        if (this.redisStorage) await this.redisStorage.bgSave();
+            void (async () => {
+              if (this.redisStorage) await this.redisStorage.bgSave();
 
-        var matterBridge = await this.getMatterBridge(node.nodeId);
+              if (nodeId) {
+                const matterBridge = await this.getMatterBridge(nodeId);
 
-        if (this.updateMatterBridgeHandler && matterBridge) {
-          await this.updateMatterBridgeHandler(matterBridge);
-        }
-      };
+                if (this.updateMatterBridgeHandler && matterBridge) {
+                  await this.updateMatterBridgeHandler(matterBridge);
+                }
+              }
+            })();
+          }
+        };
 
-      node.events.structureChanged.on(structureChangedListener as Observer<[void], void>);
+        clientNode.lifecycle.changed.on(structureChangedListener);
 
-      this.structureChangeListeners.set(node.nodeId, structureChangedListener);
+        this.structureChangeListeners.set(peerId, () => {
+          clientNode.lifecycle.changed.off(structureChangedListener);
+        });
+      }
+    } else {
+      // Without subscriptions the controller polls devices. Structure changes are detected in the
+      // background refresh task by comparing endpoint snapshots. Take the baseline snapshot once
+      // the node first comes online so the task has something to compare against.
+      clientNode.lifecycle.online.once(async () => {
+        this.snapshotAggregatorEndpoints(clientNode);
+      });
+
+      // Store a no-op unsubscribe so the has() guard above stays consistent across reconnects.
+      this.structureChangeListeners.set(peerId, () => {});
     }
   }
 
+  /**
+   * Record the sorted list of endpoint numbers currently present under the aggregator (endpoint 1)
+   * of the given ClientNode. Called once the node comes online; used by the background refresh task
+   * to detect structural changes when autoSubscribe is false.
+   */
+  private snapshotAggregatorEndpoints(clientNode: ClientNode): void {
+    const peerId = clientNode.id as string;
+    const aggregator = clientNode.parts.get(1);
+    if (!aggregator) return;
+    const endpointNums = [...aggregator.parts].map((p) => p.number ?? 0).sort((a, b) => a - b);
+    this.knownAggregatorEndpoints.set(peerId, endpointNums);
+    log.debug(`Snapshotted ${endpointNums.length} aggregator endpoints for node ${clientNode.peerAddress?.nodeId}`);
+  }
+
   async openEnhancedCommissioningWindow(nodeId: NodeId) {
-    if (!this.commissioningController) return undefined;
+    if (!this.serverNode) return undefined;
 
     try {
-      let node = await this.commissioningController.getNode(nodeId);
-      return await node.openEnhancedCommissioningWindow();
+      const clientNode = this.getClientNodeById(nodeId);
+      if (!clientNode) return undefined;
+
+      // Read BasicInformation from cache for vendorId and productId
+      const biState = clientNode.maybeStateOf(BasicInformationClient);
+      if (!biState) {
+        log.error(`BasicInformation cluster not available for node ${nodeId}`);
+        return undefined;
+      }
+
+      // Delegate to the legacy PairedNode.openEnhancedCommissioningWindow via AdministratorCommissioning commands
+      // We use the same logic as the old PairedNode implementation
+      const adminCommissioningEndpoint = clientNode;
+      const adminCommissioningCommands = adminCommissioningEndpoint.commandsOf(AdministratorCommissioningClient);
+
+      // Revoke any existing commissioning window first
+      try {
+        await adminCommissioningCommands.revokeCommissioning();
+      } catch (e) {
+        log.error(e);
+        // Ignore if no window is open
+      }
+
+      // Generate PASE credentials
+      const { Crypto } = await import("@matter/main");
+      const crypto = this.environment.get(Crypto);
+      const { PaseClient } = await import("@matter/protocol");
+      const discriminator = PaseClient.generateRandomDiscriminator(crypto);
+      const passcode = PaseClient.generateRandomPasscode(crypto);
+      const salt = crypto.randomBytes(32);
+      const iterations = 1000; // CRYPTO_PBKDF_ITERATIONS_MIN
+      const pakePasscodeVerifier = await PaseClient.generatePakePasscodeVerifier(crypto, passcode, {
+        iterations,
+        salt
+      });
+
+      const commissioningTimeout = 900;
+      await adminCommissioningCommands.openCommissioningWindow({
+        commissioningTimeout,
+        pakePasscodeVerifier,
+        salt,
+        iterations,
+        discriminator
+      });
+
+      const { QrPairingCodeCodec, ManualPairingCodeCodec, CommissioningFlowType, DiscoveryCapabilitiesSchema } =
+        await import("@matter/main/types");
+
+      const vendorId = biState.vendorId;
+      const productId = biState.productId;
+
+      const qrPairingCode = QrPairingCodeCodec.encode([
+        {
+          version: 0,
+          vendorId,
+          productId,
+          flowType: CommissioningFlowType.Standard,
+          discriminator,
+          passcode,
+          discoveryCapabilities: DiscoveryCapabilitiesSchema.encode({ onIpNetwork: true })
+        }
+      ]);
+
+      const manualPairingCode = ManualPairingCodeCodec.encode({
+        discriminator,
+        passcode,
+        flowType: CommissioningFlowType.Standard
+      });
+
+      return { manualPairingCode, qrPairingCode };
     } catch (e) {
       log.error(e);
     }
@@ -437,28 +670,45 @@ class ControllerNode {
   }
 
   async getMatterBridge(nodeId: NodeId): Promise<MatterBridge | undefined> {
-    if (!this.commissioningController) return undefined;
+    if (!this.serverNode) return undefined;
 
-    const rootNode = await this.commissioningController.getNode(nodeId);
-    const aggregatorEndpoint = rootNode.getDeviceById(1);
-    const basicInformationClient = rootNode.getRootClusterClient(BasicInformation);
+    const clientNode = this.getClientNodeById(nodeId);
+    if (!clientNode) return undefined;
 
-    if (!aggregatorEndpoint || !basicInformationClient) return undefined;
+    // Get the aggregator endpoint (endpoint number 1 in a bridge)
+    const aggregatorEndpoint = clientNode.parts.get(1);
+    if (!aggregatorEndpoint) return undefined;
 
-    const vendorName = await basicInformationClient.getVendorNameAttribute();
-    const productName = await basicInformationClient.getProductNameAttribute();
-    const label = await basicInformationClient.getNodeLabelAttribute();
+    // Read BasicInformation from cache (populated after first connection)
+    let biState = clientNode.maybeStateOf(BasicInformationClient);
 
-    return new MatterBridge(rootNode.nodeId, vendorName, productName, label, rootNode, aggregatorEndpoint);
+    if (!biState) {
+      // Fall back to remote read if cache not yet populated
+      try {
+        biState = await clientNode.getStateOf(BasicInformationClient);
+      } catch (e) {
+        log.error(`Failed to read BasicInformation for node ${nodeId}: ${e}`);
+        return undefined;
+      }
+    }
+
+    const vendorName = biState.vendorName ?? "";
+    const productName = biState.productName ?? "";
+    const label = biState.nodeLabel ?? "";
+
+    return new MatterBridge(nodeId, vendorName, productName, label, clientNode, aggregatorEndpoint);
   }
 
   async getMatterBridges(): Promise<MatterBridge[]> {
     var matterBridges: MatterBridge[] = [];
 
-    if (!this.commissioningController) return matterBridges;
+    if (!this.serverNode) return matterBridges;
 
-    for (const nodeId of this.commissioningController.getCommissionedNodes()) {
-      var matterBridge = await this.getMatterBridge(nodeId);
+    for (const peer of this.serverNode.peers) {
+      const peerAddress = peer.maybeStateOf(CommissioningClient)?.peerAddress;
+      if (!peerAddress) continue;
+
+      var matterBridge = await this.getMatterBridge(peerAddress.nodeId);
 
       if (matterBridge) {
         matterBridges.push(matterBridge);
@@ -469,16 +719,19 @@ class ControllerNode {
   }
 
   async removeNode(nodeId: NodeId, forceRemove: boolean) {
-    if (!this.commissioningController) return;
+    if (!this.serverNode) return;
 
-    var matterBridge = await this.getMatterBridge(nodeId);
+    const clientNode = this.getClientNodeById(nodeId);
+    if (!clientNode) return;
+
+    const matterBridge = await this.getMatterBridge(nodeId);
 
     if (matterBridge) {
       try {
-        await matterBridge.rootNode.decommission();
+        await clientNode.decommission();
       } catch (e) {
         if (forceRemove) {
-          await this.commissioningController.removeNode(nodeId, false);
+          await clientNode.delete();
         } else {
           throw e;
         }
@@ -490,38 +743,38 @@ class ControllerNode {
         await this.removeMatterBridgeHandler(matterBridge);
       }
 
-      let structureChangedListener = this.structureChangeListeners.get(matterBridge.rootNode.nodeId);
-
-      if (structureChangedListener) {
-        matterBridge.rootNode.events.structureChanged.off(structureChangedListener as Observer<[void], void>);
-        this.structureChangeListeners.delete(matterBridge.rootNode.nodeId);
+      const peerId = clientNode.id as string;
+      const unsubscribe = this.structureChangeListeners.get(peerId);
+      if (unsubscribe) {
+        unsubscribe();
+        this.structureChangeListeners.delete(peerId);
       }
+      this.knownAggregatorEndpoints.delete(peerId);
     }
   }
 
   async reset() {
-    if (!this.commissioningController) return;
+    if (!this.serverNode) return;
 
-    for (let commissionedNodeId of this.commissioningController.getCommissionedNodes()) {
-      let rootNode = await this.commissioningController.getNode(commissionedNodeId);
-
+    for (const peer of this.serverNode.peers) {
       try {
-        // Try to decommission all nodes
-        await rootNode.decommission();
+        await peer.decommission();
       } catch (e) {
         // Ignore errors because we reset everything
         log.error(e);
       }
 
-      let structureChangedListener = this.structureChangeListeners.get(rootNode.nodeId);
-
-      if (structureChangedListener) {
-        rootNode.events.structureChanged.off(structureChangedListener as Observer<[void], void>);
+      const peerId = peer.id as string;
+      const unsubscribe = this.structureChangeListeners.get(peerId);
+      if (unsubscribe) {
+        unsubscribe();
       }
     }
+    this.structureChangeListeners.clear();
+    this.knownAggregatorEndpoints.clear();
 
     await this.stop();
-    await this.commissioningController.resetStorage();
+    await this.serverNode.erase();
 
     if (this.removeMatterBridgeHandler) {
       await this.removeMatterBridgeHandler(null);

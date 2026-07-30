@@ -8,8 +8,8 @@ import {
   SwitchStates
 } from "@unfoldedcircle/integration-api";
 import { driverConfig, TemperatureUnit } from "../config.js";
-import { Endpoint } from "@project-chip/matter.js/device";
-import { WindowCovering } from "@matter/main/clusters";
+import { Endpoint } from "@matter/node";
+import { WindowCoveringClient } from "@matter/node/behaviors/window-covering";
 import { MatterHelpers } from "./helpers.js";
 import log from "../loggers.js";
 
@@ -29,7 +29,7 @@ export class MatterValueConverters {
   }
 
   static matterMiredToPercent(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     mired: number | undefined
   ): { [key: string]: string | number | boolean } {
     if (mired == undefined)
@@ -58,7 +58,7 @@ export class MatterValueConverters {
     return Math.round((value / 360) * 254);
   }
 
-  static matterHueToUc(endpoint: Endpoint, value: number | undefined): { [key: string]: string | number | boolean } {
+  static matterHueToUc(_endpoint: Endpoint, value: number | undefined): { [key: string]: string | number | boolean } {
     return {
       [LightAttributes.Hue]: value == undefined ? LightStates.Unknown : Math.round((value / 254) * 360)
     };
@@ -69,7 +69,7 @@ export class MatterValueConverters {
   }
 
   static matterSaturationToUc(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: number | undefined
   ): { [key: string]: string | number | boolean } {
     return {
@@ -82,7 +82,7 @@ export class MatterValueConverters {
   }
 
   static matterLevelToUc(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: number | null | undefined
   ): { [key: string]: string | number | boolean } {
     return {
@@ -91,7 +91,7 @@ export class MatterValueConverters {
   }
 
   static matterLevelToUcSwitchState(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: number | null | undefined
   ): { [key: string]: string | number | boolean } {
     return {
@@ -101,7 +101,7 @@ export class MatterValueConverters {
   }
 
   static matterOnOffToUcSwitchState(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: boolean | undefined
   ): { [key: string]: string | number | boolean } {
     return {
@@ -111,7 +111,7 @@ export class MatterValueConverters {
   }
 
   static matterOnOffToUcLightState(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: boolean | undefined
   ): { [key: string]: string | number | boolean } {
     return {
@@ -119,7 +119,7 @@ export class MatterValueConverters {
     };
   }
 
-  static matterTemperatureToUc(endpoint: Endpoint, value: any): { [key: string]: string | number | boolean } {
+  static matterTemperatureToUc(_endpoint: Endpoint, value: any): { [key: string]: string | number | boolean } {
     if (driverConfig.get().temperatureUnit == TemperatureUnit.Fahrenheit) {
       return { [SensorAttributes.Value]: value * 0.018 + 32 };
     } else {
@@ -127,7 +127,7 @@ export class MatterValueConverters {
     }
   }
 
-  static matterHumidityToUc(endpoint: Endpoint, value: any): { [key: string]: string | number | boolean } {
+  static matterHumidityToUc(_endpoint: Endpoint, value: any): { [key: string]: string | number | boolean } {
     return { [SensorAttributes.Value]: value * 0.01 };
   }
 
@@ -163,15 +163,14 @@ export class MatterValueConverters {
     targetPosition: number | undefined
   ): { [key: string]: string | number | boolean } {
     var coverState = CoverStates.Unknown;
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
     const coverPercentInverted = driverConfig.get().coverPercentInverted;
 
     if (MatterHelpers.isNumber(targetPosition) && coverPercentInverted) {
       targetPosition = 10000 - targetPosition;
     }
 
-    if (windowCoveringClient) {
-      let currentPosition = windowCoveringClient.getCurrentPositionLiftPercent100thsAttributeFromCache();
+    if (endpoint.behaviors.has(WindowCoveringClient)) {
+      let currentPosition = endpoint.stateOf(WindowCoveringClient).currentPositionLiftPercent100ths;
 
       if (MatterHelpers.isNumber(currentPosition) && coverPercentInverted) {
         currentPosition = 10000 - currentPosition;
@@ -198,10 +197,8 @@ export class MatterValueConverters {
       attributes[CoverAttributes.Position] = currentPosition * 0.01;
     }
 
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
-
-    if (windowCoveringClient) {
-      let targetPosition = windowCoveringClient.getTargetPositionLiftPercent100thsAttributeFromCache();
+    if (endpoint.behaviors.has(WindowCoveringClient)) {
+      let targetPosition = endpoint.stateOf(WindowCoveringClient).targetPositionLiftPercent100ths;
 
       if (MatterHelpers.isNumber(targetPosition) && coverPercentInverted) {
         targetPosition = 10000 - targetPosition;
@@ -217,7 +214,7 @@ export class MatterValueConverters {
   }
 
   static matterWindowCoveringCurrentPositionTiltToUcCoverTiltPosition(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     currentTiltPosition: number | undefined
   ): { [key: string]: string | number | boolean } {
     if (MatterHelpers.isNumber(currentTiltPosition)) {

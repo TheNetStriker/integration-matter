@@ -1,6 +1,6 @@
 import * as uc from "@unfoldedcircle/integration-api";
-import { OnOff } from "@matter/main/clusters";
-import { Endpoint } from "@project-chip/matter.js/device";
+import { Endpoint } from "@matter/node";
+import { OnOffClient } from "@matter/node/behaviors/on-off";
 
 import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
@@ -21,12 +21,17 @@ export class SwitchDevice extends BaseDevice {
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var switchFeatures: uc.SwitchFeatures[] = [];
 
-    if (endpoint.hasClusterClient(OnOff)) {
+    if (endpoint.behaviors.has(OnOffClient)) {
       switchFeatures.push(uc.SwitchFeatures.OnOff, uc.SwitchFeatures.Toggle);
     }
 
+    // Read device type from Descriptor cluster state
+    const { DescriptorClient } = await import("@matter/node/behaviors/descriptor");
+    const descriptorState = endpoint.maybeStateOf(DescriptorClient);
+    const deviceTypeValue = descriptorState?.deviceTypeList[0]?.deviceType ?? 0;
+
     var deviceClass =
-      endpoint.deviceType.valueOf() == MatterDeviceType.OnOffPlugInUnit
+      deviceTypeValue == MatterDeviceType.OnOffPlugInUnit
         ? uc.SwitchDeviceClasses.Outlet
         : uc.SwitchDeviceClasses.Switch;
 
@@ -71,21 +76,19 @@ export class SwitchDevice extends BaseDevice {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     try {
-      const onOffClient = this.endpoint.getClusterClient(OnOff);
-
-      if (!onOffClient) {
+      if (!this.endpoint.behaviors.has(OnOffClient)) {
         return uc.StatusCodes.NotFound;
       }
 
       switch (cmdId) {
         case uc.LightCommands.Toggle:
-          await onOffClient.toggle();
+          await this.endpoint.commandsOf(OnOffClient).toggle();
           break;
         case uc.LightCommands.On:
-          await onOffClient.on();
+          await this.endpoint.commandsOf(OnOffClient).on();
           break;
         case uc.LightCommands.Off:
-          await onOffClient.off();
+          await this.endpoint.commandsOf(OnOffClient).off();
           break;
         default:
           return uc.StatusCodes.NotImplemented;

@@ -1,8 +1,8 @@
 import * as uc from "@unfoldedcircle/integration-api";
+import { Endpoint } from "@matter/node";
 
 import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
-import { Endpoint } from "@project-chip/matter.js/device";
 import { MatterHelpers } from "../matter/helpers.js";
 import { driverConfig, TemperatureUnit } from "../config.js";
 import { MatterDeviceType } from "./device_maps.js";
@@ -17,10 +17,13 @@ export class SensorDevice extends BaseDevice {
   }
 
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
-    var deviceClass = MatterHelpers.getUcSensorDeviceClass(endpoint.deviceType.valueOf());
+    const { DescriptorClient } = await import("@matter/node/behaviors/descriptor");
+    const descriptorState = endpoint.maybeStateOf(DescriptorClient);
+    const deviceTypeValue = (descriptorState?.deviceTypeList[0]?.deviceType ?? 0) as number;
+    const ucDeviceClass = MatterHelpers.getUcSensorDeviceClass(deviceTypeValue);
 
     const entity = new uc.Sensor(deviceInfo.entityId, deviceInfo.entityLabel!, {
-      deviceClass: deviceClass
+      deviceClass: ucDeviceClass
     });
 
     return entity;
@@ -28,9 +31,8 @@ export class SensorDevice extends BaseDevice {
 
   async getEntityAttributes(options: GetEntityAttributeOptions) {
     let entityAttributes = await this.getEntityStateAttributes([uc.SensorAttributes.Value], options);
-    let endpointDeviceType = this.endpoint.deviceType.valueOf();
 
-    if (endpointDeviceType == MatterDeviceType.TemperatureSensor) {
+    if (this.endpointDeviceType == MatterDeviceType.TemperatureSensor) {
       switch (driverConfig.get().temperatureUnit) {
         case TemperatureUnit.Celcius:
           entityAttributes[uc.SensorAttributes.Unit] = "°C";
@@ -38,7 +40,7 @@ export class SensorDevice extends BaseDevice {
         case TemperatureUnit.Fahrenheit:
           entityAttributes[uc.SensorAttributes.Unit] = "°F";
       }
-    } else if (endpointDeviceType == MatterDeviceType.HumiditySensor) {
+    } else if (this.endpointDeviceType == MatterDeviceType.HumiditySensor) {
       entityAttributes[uc.SensorAttributes.Unit] = "%";
     }
 

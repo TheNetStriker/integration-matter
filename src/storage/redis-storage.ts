@@ -1,5 +1,6 @@
 import ioredis from "ioredis";
 import { Bytes, Environment, StorageError, SupportedStorageTypes, fromJson, toJson } from "@matter/general";
+import log from "../loggers.js";
 
 const notInitializedError = new StorageError("Storage not initialized!");
 
@@ -157,9 +158,14 @@ export class RedisStorage {
     await this.client.hset(hashKey, key, buffer);
   }
 
-  bgSave(): Promise<string> {
+  async bgSave(): Promise<string> {
     if (!this.client) throw notInitializedError;
-    return this.client.bgsave();
+    try {
+      return await this.client.bgsave();
+    } catch (e) {
+      log.error(e);
+      return "ERR";
+    }
   }
 
   buildRedisHashKey(contexts: readonly string[]): string {

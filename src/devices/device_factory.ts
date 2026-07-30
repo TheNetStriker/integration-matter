@@ -1,6 +1,6 @@
 import * as matter from "../matter/controller.js";
-import { Descriptor } from "@matter/main/clusters";
-import { Endpoint } from "@project-chip/matter.js/device";
+import { Endpoint } from "@matter/node";
+import { DescriptorClient } from "@matter/node/behaviors/descriptor";
 import { Entity } from "@unfoldedcircle/integration-api";
 
 import log from "../loggers.js";
@@ -9,13 +9,17 @@ import { BaseDevice, DeviceInfo } from "./base_device.js";
 import { MatterBridge } from "../matter/controller.js";
 import { getDeviceClass } from "./device_maps.js";
 
+let onMatterBridgeUpdatedRunning = false;
+
 interface MatterBridgeDevices {
   bridge: matter.MatterBridge;
   devices: Map<string, BaseDevice>;
 }
 
 const createDevice = async function (endpoint: Endpoint, matterBridge: MatterBridge, deviceInfo: DeviceInfo) {
-  const deviceType = endpoint.deviceType.valueOf();
+  // Read device type from the Descriptor cluster state
+  const descriptorState = endpoint.maybeStateOf(DescriptorClient);
+  const deviceType = (descriptorState?.deviceTypeList[0]?.deviceType ?? 0) as number;
   let device: BaseDevice;
   let entity: Entity;
 
@@ -60,10 +64,11 @@ async function onMatterBridgeAdded(matterBridge: matter.MatterBridge) {
 }
 
 async function addMatterBridge(matterBridge: matter.MatterBridge, addEntites: boolean) {
-  const nodeEndpoints = matterBridge.aggregatorEndpoint.getChildEndpoints();
-  const aggregatorEndpointDescriptor = matterBridge.aggregatorEndpoint.getClusterClient(Descriptor);
+  // In the new API, aggregatorEndpoint.parts contains child endpoints
+  const nodeEndpoints = [...matterBridge.aggregatorEndpoint.parts];
+  const aggregatorHasDescriptor = matterBridge.aggregatorEndpoint.behaviors.has(DescriptorClient);
 
-  if (!nodeEndpoints || !aggregatorEndpointDescriptor) {
+  if (!nodeEndpoints || !aggregatorHasDescriptor) {
     return undefined;
   }
 
@@ -144,6 +149,24 @@ async function removeMatterBridge(matterBridge: matter.MatterBridge | null, remo
  * @param {MatterBridge} updatedMatterBridge
  */
 async function onMatterBridgeUpdated(updatedMatterBridge: matter.MatterBridge) {
+  if (onMatterBridgeUpdatedRunning) {
+    return;
+  }
+
+  onMatterBridgeUpdatedRunning = true;
+
+  try {
+    await onMatterBridgeUpdatedInternal(updatedMatterBridge);
+  } finally {
+    onMatterBridgeUpdatedRunning = false;
+  }
+}
+
+/**
+ * Handle an updated matter bridge.
+ * @param {MatterBridge} updatedMatterBridge
+ */
+async function onMatterBridgeUpdatedInternal(updatedMatterBridge: matter.MatterBridge) {
   log.debug("Matter bridge updated:", updatedMatterBridge.label);
 
   var configuredMatterBridge = configuredDevices.get(updatedMatterBridge.entityIdentifier);
@@ -186,7 +209,7 @@ async function onMatterBridgeUpdated(updatedMatterBridge: matter.MatterBridge) {
         oldMatterDevice &&
         newMatterDevice &&
         newMatterDevice.entity &&
-        oldMatterDevice.endpoint.deviceType.valueOf() != newMatterDevice.endpoint.deviceType.valueOf()
+        oldMatterDevice.endpointDeviceType != newMatterDevice.endpointDeviceType
       ) {
         configuredEntities.removeEntity(newMatterDevice.entity.id);
         availableEntities.removeEntity(newMatterDevice.entity.id);

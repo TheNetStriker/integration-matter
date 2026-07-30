@@ -1,6 +1,6 @@
 import * as uc from "@unfoldedcircle/integration-api";
-import { WindowCovering } from "@matter/main/clusters";
-import { Endpoint } from "@project-chip/matter.js/device";
+import { Endpoint } from "@matter/node";
+import { WindowCoveringClient } from "@matter/node/behaviors/window-covering";
 
 import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
@@ -30,20 +30,20 @@ export class CoverDevice extends BaseDevice {
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var coverFeatures: uc.CoverFeatures[] = [];
 
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
-
-    if (windowCoveringClient) {
+    if (endpoint.behaviors.has(WindowCoveringClient)) {
       coverFeatures.push(uc.CoverFeatures.Close, uc.CoverFeatures.Open, uc.CoverFeatures.Stop);
 
-      if (windowCoveringClient.supportedFeatures.positionAwareLift) {
+      const features = endpoint.featuresOf(WindowCoveringClient);
+
+      if (features.positionAwareLift) {
         coverFeatures.push(uc.CoverFeatures.Position);
       }
 
-      if (windowCoveringClient.supportedFeatures.tilt) {
+      if (features.tilt) {
         coverFeatures.push(uc.CoverFeatures.Tilt, uc.CoverFeatures.TiltStop);
       }
 
-      if (windowCoveringClient.supportedFeatures.positionAwareTilt) {
+      if (features.positionAwareTilt) {
         coverFeatures.push(uc.CoverFeatures.TiltPosition);
       }
     }
@@ -108,18 +108,16 @@ export class CoverDevice extends BaseDevice {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     try {
-      const windowCoveringClient = this.endpoint.getClusterClient(WindowCovering);
-
-      if (!windowCoveringClient) {
+      if (!this.endpoint.behaviors.has(WindowCoveringClient)) {
         return uc.StatusCodes.NotFound;
       }
 
       switch (cmdId) {
         case uc.CoverCommands.Close:
-          await windowCoveringClient.downOrClose();
+          await this.endpoint.commandsOf(WindowCoveringClient).downOrClose();
           break;
         case uc.CoverCommands.Open:
-          await windowCoveringClient.upOrOpen();
+          await this.endpoint.commandsOf(WindowCoveringClient).upOrOpen();
           break;
         case uc.CoverCommands.Position:
           if (params?.position != undefined && typeof params?.position === "number") {
@@ -129,17 +127,17 @@ export class CoverDevice extends BaseDevice {
               position = 100 - position;
             }
 
-            await windowCoveringClient.goToLiftPercentage({
+            await this.endpoint.commandsOf(WindowCoveringClient).goToLiftPercentage({
               liftPercent100thsValue: MatterValueConverters.ucCoverPositionToMatterWindowCoveringPosition(position)
             });
           }
           break;
         case uc.CoverCommands.Stop:
-          await windowCoveringClient.stopMotion();
+          await this.endpoint.commandsOf(WindowCoveringClient).stopMotion();
           break;
         case uc.CoverCommands.Tilt:
           if (params?.position && typeof params?.position === "number") {
-            await windowCoveringClient.goToTiltPercentage({
+            await this.endpoint.commandsOf(WindowCoveringClient).goToTiltPercentage({
               tiltPercent100thsValue: MatterValueConverters.ucCoverPositionToMatterWindowCoveringPosition(
                 params.position
               )
@@ -147,10 +145,10 @@ export class CoverDevice extends BaseDevice {
           }
           break;
         case uc.CoverCommands.TiltDown:
-          await windowCoveringClient.goToTiltPercentage({ tiltPercent100thsValue: 0 });
+          await this.endpoint.commandsOf(WindowCoveringClient).goToTiltPercentage({ tiltPercent100thsValue: 0 });
           break;
         case uc.CoverCommands.TiltStop:
-          await windowCoveringClient.stopMotion();
+          await this.endpoint.commandsOf(WindowCoveringClient).stopMotion();
           break;
         default:
           return uc.StatusCodes.NotImplemented;
