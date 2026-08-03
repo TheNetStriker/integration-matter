@@ -103,7 +103,7 @@ export abstract class BaseDevice {
     return this.attributeListenersMap.size > 0;
   }
 
-  private onMatterAttributeChanged = (entityAttribute: string, value: any) => {
+  private onMatterAttributeChanged = async (entityAttribute: string, value: any) => {
     const matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(
       this.entity.entity_type,
       entityAttribute,
@@ -117,9 +117,24 @@ export abstract class BaseDevice {
       `${MatterHelpers.getReadableEntityAttributeName(entityAttribute, true)} update value ${value} on entity ${this.deviceInfo.entityId}.`
     );
 
-    if (entityAttribute == "state" && value == false && this.hasAttribute(uc.LightAttributes.Brightness)) {
-      attributes[uc.LightAttributes.Brightness] = 0;
-      log.debug(`Light state change, setting brightness to 0 on entity ${this.deviceInfo.entityId}.`);
+    // If light is switched off set brightness to 0
+    // If light is switched on set brightness back to cached value
+    if (entityAttribute == "state" && this.hasAttribute(uc.LightAttributes.Brightness)) {
+      var brightness = 0;
+
+      if (value) {
+        var brightnessFromCache = await this.getEntityAttribute(
+          { initFromMatterCache: true, onlyReturnChangedAttributes: false, requestFromRemote: false },
+          uc.LightAttributes.Brightness
+        );
+
+        if (typeof brightnessFromCache === "number") {
+          brightness = brightnessFromCache;
+        }
+      }
+
+      attributes[uc.LightAttributes.Brightness] = brightness;
+      log.debug(`Light state change, setting brightness to ${brightness} on entity ${this.deviceInfo.entityId}.`);
     }
 
     this.updateEntityAttributes(attributes);
