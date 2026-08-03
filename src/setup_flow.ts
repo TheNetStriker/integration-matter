@@ -317,6 +317,11 @@ async function handleMatterConfigRequest(): Promise<uc.SetupAction> {
       });
 
       dropdownActions.push({
+        id: "restart",
+        label: { en: "Restart Matter Controller", de: "Matter Controller neustarten" }
+      });
+
+      dropdownActions.push({
         id: "reset",
         label: { en: "Reset configuration", de: "Konfiguration zurücksetzen" }
       });
@@ -452,6 +457,10 @@ async function handleConfigurationMode(
       const choice = msg.inputValues["choice"];
       setupStep = SetupSteps.MATTER_STRUCTURE_DEBUG_OUTPUT;
       return userInputMatterStructureDebugOutput(choice);
+    case "restart":
+      await matter.controllerNode.stop();
+      await matter.controllerNode.start();
+      return new uc.SetupComplete();
     case "reset":
       await matter.controllerNode.reset();
       break;
