@@ -81,14 +81,6 @@ async function initializeAndStartMatterController(initalizeConfig: boolean) {
 
   if (controllerInitialized) {
     await matter.controllerNode.start();
-
-    if (matter.controllerNode.isCommissioned()) {
-      var matterBridges = await matter.controllerNode.getMatterBridges();
-
-      for (const matterBridge of matterBridges) {
-        await onMatterBridgeAdded(matterBridge);
-      }
-    }
   }
 
   log.debug("Matter Controller initialized.");

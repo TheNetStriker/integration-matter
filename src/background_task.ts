@@ -61,13 +61,24 @@ export class BackgroundTask {
         break;
       }
 
-      await this.delay(this.intervalMs);
+      await this.delay(this.intervalMs, this.controller.signal);
     }
   }
 
-  private delay(ms: number): Promise<void> {
+  private delay(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve) => {
-      this.timeout = setTimeout(resolve, ms);
+      const timeout = setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+
+      const onAbort = () => {
+        clearTimeout(timeout);
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      };
+
+      signal.addEventListener("abort", onAbort);
     });
   }
 }

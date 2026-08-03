@@ -106,7 +106,7 @@ async function onMatterBridgeRemoved(matterBridge: matter.MatterBridge | null) {
 
 async function removeMatterBridge(matterBridge: matter.MatterBridge | null, removeEntites: boolean) {
   if (matterBridge === null) {
-    log.debug("Configuration cleared, disconnecting & removing all configured matter devices.");
+    log.debug("Removing all configured matter devices.");
 
     for (let [, matterBridgeDevices] of configuredDevices.entries()) {
       for (let [, device] of matterBridgeDevices.devices.entries()) {

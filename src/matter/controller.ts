@@ -1,4 +1,5 @@
 import {
+  ClientCacheBuffer,
   Diagnostic,
   Environment,
   LogDestination,
@@ -212,7 +213,7 @@ class ControllerNode {
 
     this.startBackgroundRefreshTask();
 
-    if (this.redisStorage) await this.redisStorage.bgSave();
+    await this.flushStorage();
 
     this.commissioningControllerStarted = true;
 
@@ -233,6 +234,10 @@ class ControllerNode {
 
     /** Stop the Matter Controller Node */
     await this.commissioningController.close();
+
+    if (this.removeMatterBridgeHandler) {
+      await this.removeMatterBridgeHandler(null);
+    }
 
     this.commissioningControllerStarted = false;
 
@@ -352,14 +357,14 @@ class ControllerNode {
           await this.addMatterBridgeHandler(matterBridge);
         }
 
-        if (this.redisStorage) await this.redisStorage.bgSave();
+        await this.flushStorage();
 
         console.timeEnd("Commissioning took");
         log.info(`Node ${nodeId} successfully initialized`);
         node.logStructure();
       });
 
-      this.connectPairedNode(node);
+      await this.connectPairedNode(node);
 
       return nodeId;
     } else {
@@ -375,7 +380,7 @@ class ControllerNode {
     for (const nodeId of this.commissioningController.getCommissionedNodes()) {
       try {
         let node = await this.commissioningController.getNode(nodeId);
-        this.connectPairedNode(node);
+        await this.connectPairedNode(node);
       } catch (e) {
         log.error(e);
       }
@@ -397,7 +402,7 @@ class ControllerNode {
     }
   }
 
-  connectPairedNode(node: PairedNode) {
+  async connectPairedNode(node: PairedNode) {
     if (!this.commissioningController) return;
 
     node.connect({ autoSubscribe: driverConfig.autoSubscribe });
@@ -408,7 +413,7 @@ class ControllerNode {
       structureChangedListener = async () => {
         log.info(`Node ${node.nodeId} structure changed`);
 
-        if (this.redisStorage) await this.redisStorage.bgSave();
+        await this.flushStorage();
 
         var matterBridge = await this.getMatterBridge(node.nodeId);
 
@@ -420,6 +425,26 @@ class ControllerNode {
       node.events.structureChanged.on(structureChangedListener as Observer<[void], void>);
 
       this.structureChangeListeners.set(node.nodeId, structureChangedListener);
+    }
+
+    if (!node.initialized) {
+      void node.events.initializedFromRemote.then(async () => {
+        var matterBridge = await this.getMatterBridge(node.nodeId);
+
+        if (this.addMatterBridgeHandler && matterBridge) {
+          await this.addMatterBridgeHandler(matterBridge);
+        }
+
+        await this.flushStorage();
+
+        log.info(`Node ${node.nodeId} successfully initialized`);
+      });
+    } else {
+      var matterBridge = await this.getMatterBridge(node.nodeId);
+
+      if (this.addMatterBridgeHandler && matterBridge) {
+        await this.addMatterBridgeHandler(matterBridge);
+      }
     }
   }
 
@@ -484,7 +509,7 @@ class ControllerNode {
         }
       }
 
-      if (this.redisStorage) await this.redisStorage.bgSave();
+      await this.flushStorage();
 
       if (this.removeMatterBridgeHandler) {
         await this.removeMatterBridgeHandler(matterBridge);
@@ -528,6 +553,14 @@ class ControllerNode {
     }
 
     await this.start();
+  }
+
+  async flushStorage() {
+    if (this.commissioningController && this.commissioningController.node.env.has(ClientCacheBuffer)) {
+      await this.commissioningController.node.env.get(ClientCacheBuffer).flush();
+    }
+
+    if (this.redisStorage) await this.redisStorage.bgSave();
   }
 }
 
