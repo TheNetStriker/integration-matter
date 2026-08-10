@@ -16,7 +16,7 @@ enum TemperatureUnit {
 class DriverSettings {
   matterUniqueId: string | undefined;
   matterFabricLabel: string | undefined;
-  autoSubscribe: boolean = false;
+  autoSubscribe: boolean = true;
   backgroundRefreshInterval: number = 60;
   // in tenths of a second
   lightTransitionTime: number = 10;

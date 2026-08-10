@@ -37,7 +37,7 @@ async function userInputDriverConfig(): Promise<uc.RequestUserInput> {
       },
       id: "autoSubscribe",
       label: {
-        en: "Enable Live updates (Can cause problems when running on remote)",
+        en: "Enable Live Updates (Can cause problems when integration is running on remote)",
         de: "Live Update der Werte (Kann Probleme verursachen wenn die Integration auf der Fernbedienung läuft)"
       }
     },
