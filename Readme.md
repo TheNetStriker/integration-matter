@@ -92,7 +92,6 @@ After the initial setup there are multiple configuration options:
 
 | Option                                          | Description                                                                                                                                                                                                                       |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Light transition time in tenths of a second     | Not supported by OpenHAB and also does not seem to work with HomeAssistant Matter Hub. But maybe this works with other home automation systems                                                                                    |
 | Add new matter device                           | Enter another pairing code to pair to another matter device.                                                                                                                                                                      |
 | Driver configuration                            | Configure light transition time, matter fabric label, temperature unit and debug levels. Only set the debug level of the Matter log level higher if really needed. It generates a lot of log messages and can impact performance. |
 | Generate pairing code for another Matter device | Generates a pairing code to for another device to add the same matter device as selected in the dropdown.                                                                                                                         |
@@ -100,6 +99,20 @@ After the initial setup there are multiple configuration options:
 | Decommission matter device                      | Cleanly removes the matter device from the integration. This also informs the remote system about the removal. This will not work if the remote system is offline.                                                                |
 | Force remove matter device                      | This option should only be used if the remote system does not work or was reset to factory configuration.                                                                                                                         |
 | Reset configuration                             | This option should only be used as a last resort if nothing is working anymore. This will wipe the whole matter configuration and setup a new matter controller.                                                                  |
+
+### Driver configuration
+
+| Option | Type | Description |
+| --- | --- | --- |
+| Matter fabric label | Text (1–32 alphanumeric chars) | Label for this Matter fabric. Only needs to be changed when running multiple instances of the integration against the same Matter device. |
+| Enable Live Updates | Checkbox | Subscribe to live value updates from Matter devices. (Can cause connection problems after wakeup when the integration is running on the remote itself) |
+| Refresh interval in seconds | Number (5–3600) | How often device values are polled in the background. (Only relevant when Live Updates is disabled) |
+| Light transition time in tenths of a second | Number (0–65535) | Transition time used when changing light state. Not supported by OpenHAB and does not seem to work with HomeAssistant Matter Hub. |
+| Temperature unit | Dropdown | Display temperature values in Celsius or Fahrenheit. |
+| Cover percent inverted | Checkbox | Invert the open/close percentage reported for window covers. |
+| Driver log level | Dropdown (TRACE / DEBUG / INFO / WARN / ERROR) | Log verbosity for the integration driver itself. |
+| Matter log level | Dropdown (DEBUG / INFO / NOTICE / WARN / ERROR / FATAL) | Log verbosity for the Matter stack. Only raise this if really needed — it generates a lot of messages and can impact performance. |
+| Unfolded Circle API log level | Dropdown (TRACE / DEBUG / INFO / WARN / ERROR) | Log verbosity for the Unfolded Circle integration API. |
 
 ### OpenHAB
 

@@ -45,7 +45,7 @@ async function userInputDriverConfig(): Promise<uc.RequestUserInput> {
       // number between 5 and 3600
       id: "backgroundRefreshInterval",
       label: {
-        en: "Refresh interval in seconds for device values (between 5 and 3600, only needed when live update is disabled)",
+        en: "Refresh interval in seconds for device values (between 5 and 3600)",
         de: "Aktualisierungsinterval in Sekunden für Werte der Geräte (Zwischen 5 and 3600, wird nur benötigt wenn Live Update deaktiviert ist)"
       },
       field: {
