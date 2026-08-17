@@ -98,6 +98,7 @@ After the initial setup there are multiple configuration options:
 | Matter structure debug output                   | Outputs the whole structure of the matter device to a textbox in the browser. This is useful to debug problems with matter devices.                                                                                               |
 | Decommission matter device                      | Cleanly removes the matter device from the integration. This also informs the remote system about the removal. This will not work if the remote system is offline.                                                                |
 | Force remove matter device                      | This option should only be used if the remote system does not work or was reset to factory configuration.                                                                                                                         |
+| Restart Matter Controller | Restarts the Matter Controller. (Needed to discover new devices when Live Updates are disabled) |
 | Reset configuration                             | This option should only be used as a last resort if nothing is working anymore. This will wipe the whole matter configuration and setup a new matter controller.                                                                  |
 
 ### Driver configuration
@@ -105,7 +106,7 @@ After the initial setup there are multiple configuration options:
 | Option | Type | Description |
 | --- | --- | --- |
 | Matter fabric label | Text (1–32 alphanumeric chars) | Label for this Matter fabric. Only needs to be changed when running multiple instances of the integration against the same Matter device. |
-| Enable Live Updates | Checkbox | Subscribe to live value updates from Matter devices. (Can cause connection problems after wakeup when the integration is running on the remote itself) |
+| Enable Live Updates | Checkbox | Subscribe to live value updates from Matter devices. (Can cause connection problems after wakeup when the integration is running on the remote itself) When this option is disabled the Matter Controller needs to be restarted to detect new devices. |
 | Refresh interval in seconds | Number (5–3600) | How often device values are polled in the background. (Only relevant when Live Updates is disabled) |
 | Light transition time in tenths of a second | Number (0–65535) | Transition time used when changing light state. Not supported by OpenHAB and does not seem to work with HomeAssistant Matter Hub. |
 | Temperature unit | Dropdown | Display temperature values in Celsius or Fahrenheit. |
