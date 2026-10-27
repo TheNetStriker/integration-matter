@@ -1,4 +1,4 @@
-import { StorageDriver, DataNamespace, MaybePromise, SupportedStorageTypes } from "@matter/general";
+import { StorageDriver, DataNamespace, MaybePromise, SupportedStorageTypes, Duration, Instant } from "@matter/general";
 import { RedisStorage } from "./redis-storage.js";
 
 export class RedisStorageDriver extends StorageDriver {
@@ -7,6 +7,10 @@ export class RedisStorageDriver extends StorageDriver {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(_namespaceOrPath?: DataNamespace | string) {
     super();
+  }
+
+  override get writeCoalescingInterval(): Duration {
+    return Instant;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
