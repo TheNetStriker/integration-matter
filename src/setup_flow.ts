@@ -402,8 +402,7 @@ async function handleDriverConfigDataResponse(msg: uc.UserDataResponse): Promise
 
   if (reconfigure || matter.controllerNode.isCommissioned()) {
     if (autoSubscribeChanged) {
-      await matter.controllerNode.stop();
-      await matter.controllerNode.start();
+      await matter.controllerNode.reconfigureSubscriptions();
     }
     return new uc.SetupComplete();
   }

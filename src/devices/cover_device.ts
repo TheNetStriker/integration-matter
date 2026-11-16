@@ -1,22 +1,21 @@
 import * as uc from "@unfoldedcircle/integration-api";
-import { WindowCovering } from "@matter/main/clusters";
-import { Endpoint } from "@project-chip/matter.js/device";
+import { Endpoint } from "@matter/node";
+import { WindowCoveringClient } from "@matter/node/behaviors/window-covering";
 
 import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
+import { MatterBridge } from "../matter/controller.js";
 import { MatterValueConverters } from "../matter/converters.js";
 import { driverConfig } from "../config.js";
 import { ClosedError } from "@matter/main";
 
 export class CoverDevice extends BaseDevice {
+  constructor(endpoint: Endpoint, matterBridge: MatterBridge, deviceInfo: DeviceInfo, entity: uc.Entity) {
+    super(endpoint, matterBridge, deviceInfo, entity);
+  }
+
   addAttributeListeners() {
-    if (this.hasAttributeListeners()) return;
-
-    log.debug(`addAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
-
-    if (this.hasAttribute(uc.CoverAttributes.State)) {
-      this.addAttributeListener(uc.CoverAttributes.State);
-    }
+    this.addAttributeListener(uc.CoverAttributes.State);
 
     if (this.hasAttribute(uc.CoverAttributes.Position)) {
       this.addAttributeListener(uc.CoverAttributes.Position);
@@ -30,20 +29,20 @@ export class CoverDevice extends BaseDevice {
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var coverFeatures: uc.CoverFeatures[] = [];
 
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
-
-    if (windowCoveringClient) {
+    if (endpoint.behaviors.has(WindowCoveringClient)) {
       coverFeatures.push(uc.CoverFeatures.Close, uc.CoverFeatures.Open, uc.CoverFeatures.Stop);
 
-      if (windowCoveringClient.supportedFeatures.positionAwareLift) {
+      const features = endpoint.featuresOf(WindowCoveringClient);
+
+      if (features.positionAwareLift) {
         coverFeatures.push(uc.CoverFeatures.Position);
       }
 
-      if (windowCoveringClient.supportedFeatures.tilt) {
+      if (features.tilt) {
         coverFeatures.push(uc.CoverFeatures.Tilt, uc.CoverFeatures.TiltStop);
       }
 
-      if (windowCoveringClient.supportedFeatures.positionAwareTilt) {
+      if (features.positionAwareTilt) {
         coverFeatures.push(uc.CoverFeatures.TiltPosition);
       }
     }
@@ -56,31 +55,18 @@ export class CoverDevice extends BaseDevice {
   }
 
   async getEntityAttributes(options: GetEntityAttributeOptions) {
-    let attributes: string[] = [uc.CoverAttributes.State];
-
-    if (this.entity.features) {
-      if (this.entity.features.includes(uc.CoverFeatures.Position)) {
-        attributes.push(uc.CoverAttributes.Position);
-      }
-    }
-
-    if (this.entity.features) {
-      if (this.entity.features.includes(uc.CoverFeatures.TiltPosition)) {
-        attributes.push(uc.CoverAttributes.TiltPosition);
-      }
-    }
-
-    let entityAttributes = await this.getEntityStateAttributes(attributes, options);
-
-    return entityAttributes;
+    return this.getEntityStateAttributes(
+      [uc.CoverAttributes.State, uc.CoverAttributes.Position, uc.CoverAttributes.TiltPosition],
+      options
+    );
   }
 
-  hasAttribute(attribute: string): boolean {
+  hasAttribute(attribute: string) {
     if (!this.entity.features) return false;
 
     switch (attribute) {
       case uc.CoverAttributes.State:
-        return true;
+        return this.entity.features.includes(uc.CoverFeatures.Open);
       case uc.CoverAttributes.Position:
         return this.entity.features.includes(uc.CoverFeatures.Position);
       case uc.CoverAttributes.TiltPosition:
@@ -95,7 +81,7 @@ export class CoverDevice extends BaseDevice {
    *
    * Called by the integration-API if a command is sent to a configured entity.
    *
-   * @param entity button entity
+   * @param entity cover entity
    * @param cmdId command
    * @param params optional command parameters
    * @return status of the command
@@ -108,18 +94,16 @@ export class CoverDevice extends BaseDevice {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     try {
-      const windowCoveringClient = this.endpoint.getClusterClient(WindowCovering);
-
-      if (!windowCoveringClient) {
+      if (!this.endpoint.behaviors.has(WindowCoveringClient)) {
         return uc.StatusCodes.NotFound;
       }
 
       switch (cmdId) {
         case uc.CoverCommands.Close:
-          await windowCoveringClient.downOrClose();
+          await this.endpoint.commandsOf(WindowCoveringClient).downOrClose();
           break;
         case uc.CoverCommands.Open:
-          await windowCoveringClient.upOrOpen();
+          await this.endpoint.commandsOf(WindowCoveringClient).upOrOpen();
           break;
         case uc.CoverCommands.Position:
           if (params?.position != undefined && typeof params?.position === "number") {
@@ -129,17 +113,17 @@ export class CoverDevice extends BaseDevice {
               position = 100 - position;
             }
 
-            await windowCoveringClient.goToLiftPercentage({
+            await this.endpoint.commandsOf(WindowCoveringClient).goToLiftPercentage({
               liftPercent100thsValue: MatterValueConverters.ucCoverPositionToMatterWindowCoveringPosition(position)
             });
           }
           break;
         case uc.CoverCommands.Stop:
-          await windowCoveringClient.stopMotion();
+          await this.endpoint.commandsOf(WindowCoveringClient).stopMotion();
           break;
         case uc.CoverCommands.Tilt:
           if (params?.position && typeof params?.position === "number") {
-            await windowCoveringClient.goToTiltPercentage({
+            await this.endpoint.commandsOf(WindowCoveringClient).goToTiltPercentage({
               tiltPercent100thsValue: MatterValueConverters.ucCoverPositionToMatterWindowCoveringPosition(
                 params.position
               )
@@ -147,22 +131,21 @@ export class CoverDevice extends BaseDevice {
           }
           break;
         case uc.CoverCommands.TiltDown:
-          await windowCoveringClient.goToTiltPercentage({ tiltPercent100thsValue: 0 });
+          await this.endpoint.commandsOf(WindowCoveringClient).goToTiltPercentage({ tiltPercent100thsValue: 0 });
           break;
         case uc.CoverCommands.TiltStop:
-          await windowCoveringClient.stopMotion();
+          await this.endpoint.commandsOf(WindowCoveringClient).stopMotion();
           break;
         default:
           return uc.StatusCodes.NotImplemented;
       }
     } catch (e) {
-      log.error(e);
-
       if (e instanceof ClosedError) {
-        log.error("entityCmdHandler ClosedError " + e.cause);
+        log.warn(`Entity ${entity.id} is closed`);
+        return uc.StatusCodes.ServiceUnavailable;
       }
-
-      return uc.StatusCodes.ServiceUnavailable;
+      log.error(e);
+      return uc.StatusCodes.ServerError;
     }
 
     return uc.StatusCodes.Ok;

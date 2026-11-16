@@ -1,32 +1,35 @@
 import * as uc from "@unfoldedcircle/integration-api";
-import { OnOff } from "@matter/main/clusters";
-import { Endpoint } from "@project-chip/matter.js/device";
+import { Endpoint } from "@matter/node";
+import { OnOffClient } from "@matter/node/behaviors/on-off";
+import { DescriptorClient } from "@matter/node/behaviors/descriptor";
 
 import log from "../loggers.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
+import { MatterBridge } from "../matter/controller.js";
 import { MatterDeviceType } from "./device_maps.js";
 import { ClosedError } from "@matter/main";
 
 export class SwitchDevice extends BaseDevice {
+  constructor(endpoint: Endpoint, matterBridge: MatterBridge, deviceInfo: DeviceInfo, entity: uc.Entity) {
+    super(endpoint, matterBridge, deviceInfo, entity);
+  }
+
   addAttributeListeners() {
-    if (this.hasAttributeListeners()) return;
-
-    log.debug(`addAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
-
-    if (this.hasAttribute(uc.SwitchAttributes.State)) {
-      this.addAttributeListener(uc.SwitchAttributes.State);
-    }
+    this.addAttributeListener(uc.SwitchAttributes.State);
   }
 
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var switchFeatures: uc.SwitchFeatures[] = [];
 
-    if (endpoint.hasClusterClient(OnOff)) {
+    if (endpoint.behaviors.has(OnOffClient)) {
       switchFeatures.push(uc.SwitchFeatures.OnOff, uc.SwitchFeatures.Toggle);
     }
 
+    const descriptorState = endpoint.maybeStateOf(DescriptorClient);
+    const deviceTypeValue = (descriptorState?.deviceTypeList[0]?.deviceType ?? 0) as number;
+
     var deviceClass =
-      endpoint.deviceType.valueOf() == MatterDeviceType.OnOffPlugInUnit
+      deviceTypeValue == MatterDeviceType.OnOffPlugInUnit
         ? uc.SwitchDeviceClasses.Outlet
         : uc.SwitchDeviceClasses.Switch;
 
@@ -42,7 +45,7 @@ export class SwitchDevice extends BaseDevice {
     return this.getEntityStateAttributes([uc.SwitchAttributes.State], options);
   }
 
-  hasAttribute(attribute: string): boolean {
+  hasAttribute(attribute: string) {
     if (!this.entity.features) return false;
 
     switch (attribute) {
@@ -58,7 +61,7 @@ export class SwitchDevice extends BaseDevice {
    *
    * Called by the integration-API if a command is sent to a configured entity.
    *
-   * @param entity button entity
+   * @param entity switch entity
    * @param cmdId command
    * @param params optional command parameters
    * @return status of the command
@@ -71,33 +74,30 @@ export class SwitchDevice extends BaseDevice {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     try {
-      const onOffClient = this.endpoint.getClusterClient(OnOff);
-
-      if (!onOffClient) {
+      if (!this.endpoint.behaviors.has(OnOffClient)) {
         return uc.StatusCodes.NotFound;
       }
 
       switch (cmdId) {
         case uc.LightCommands.Toggle:
-          await onOffClient.toggle();
+          await this.endpoint.commandsOf(OnOffClient).toggle();
           break;
         case uc.LightCommands.On:
-          await onOffClient.on();
+          await this.endpoint.commandsOf(OnOffClient).on();
           break;
         case uc.LightCommands.Off:
-          await onOffClient.off();
+          await this.endpoint.commandsOf(OnOffClient).off();
           break;
         default:
           return uc.StatusCodes.NotImplemented;
       }
     } catch (e) {
-      log.error(e);
-
       if (e instanceof ClosedError) {
-        log.error("entityCmdHandler ClosedError " + e.cause);
+        log.warn(`Entity ${entity.id} is closed`);
+        return uc.StatusCodes.ServiceUnavailable;
       }
-
-      return uc.StatusCodes.ServiceUnavailable;
+      log.error(e);
+      return uc.StatusCodes.ServerError;
     }
 
     return uc.StatusCodes.Ok;

@@ -4,32 +4,25 @@ import {
   LightAttributes,
   LightStates,
   SensorAttributes,
-  SwitchAttributes,
   SwitchStates
 } from "@unfoldedcircle/integration-api";
 import { driverConfig, TemperatureUnit } from "../config.js";
-import { Endpoint } from "@project-chip/matter.js/device";
-import { WindowCovering } from "@matter/main/clusters";
+import { Endpoint } from "@matter/node";
+import { WindowCoveringClient } from "@matter/node/behaviors/window-covering";
 import { MatterHelpers } from "./helpers.js";
 import log from "../loggers.js";
 
 export class MatterValueConverters {
-  static ucPercentToMired(value: number) {
-    // Begrenzen auf 0–100
-    value = Math.min(100, Math.max(0, value));
+  static ucCoverPositionToMatterWindowCoveringPosition(position: number): number {
+    return position * 100;
+  }
 
-    const minKelvin = 2000; // warm
-    const maxKelvin = 6500; // kalt
-
-    // Linear von 0–100 auf Kelvin umrechnen
-    const kelvin = maxKelvin - (value / 100) * (maxKelvin - minKelvin);
-
-    // Kelvin -> Mired
-    return Math.round(1000000 / kelvin);
+  static ucPercentToMired(colorTemperaturePercent: number): number {
+    return Math.round(370 - colorTemperaturePercent * 2.32);
   }
 
   static matterMiredToPercent(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     mired: number | undefined
   ): { [key: string]: string | number | boolean } {
     if (mired == undefined)
@@ -37,39 +30,29 @@ export class MatterValueConverters {
         [LightAttributes.ColorTemperature]: LightStates.Unknown
       };
 
-    const minKelvin = 2000; // warm
-    const maxKelvin = 6500; // kalt
-
-    // zurück zu Kelvin
-    const kelvin = 1_000_000 / mired;
-
-    // zurück zu Prozent
-    let percent = ((maxKelvin - kelvin) / (maxKelvin - minKelvin)) * 100;
-
-    // Begrenzen auf 0–100
-    percent = Math.min(100, Math.max(0, percent));
-
-    return {
-      [LightAttributes.ColorTemperature]: Math.round(percent)
-    };
+    return { [LightAttributes.ColorTemperature]: Math.round((370 - mired) / 2.32) };
   }
 
-  static ucHueToMatter(value: number) {
-    return Math.round((value / 360) * 254);
+  static ucHueToMatter(hue: number): number {
+    return Math.round((hue / 360) * 254);
   }
 
-  static matterHueToUc(endpoint: Endpoint, value: number | undefined): { [key: string]: string | number | boolean } {
+  static ucSaturationToMatter(saturation: number): number {
+    return saturation - 1;
+  }
+
+  static matterHueToUc(_endpoint: Endpoint, value: number | undefined): { [key: string]: string | number | boolean } {
     return {
       [LightAttributes.Hue]: value == undefined ? LightStates.Unknown : Math.round((value / 254) * 360)
     };
   }
 
-  static ucSaturationToMatter(value: number) {
-    return value - 1;
+  static ucLevelToMatter(level: number): number {
+    return level - 1;
   }
 
   static matterSaturationToUc(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: number | undefined
   ): { [key: string]: string | number | boolean } {
     return {
@@ -77,49 +60,43 @@ export class MatterValueConverters {
     };
   }
 
-  static ucLevelToMatter(value: number) {
-    return value - 1;
-  }
-
   static matterLevelToUc(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: number | null | undefined
   ): { [key: string]: string | number | boolean } {
     return {
-      [LightAttributes.Brightness]: value == null || value == undefined ? LightStates.Unknown : value + 1
+      [LightAttributes.Brightness]: value == null || value == undefined ? 0 : value + 1
     };
   }
 
   static matterLevelToUcSwitchState(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: number | null | undefined
   ): { [key: string]: string | number | boolean } {
     return {
-      [SwitchAttributes.State]:
-        value == null || value == undefined ? SwitchStates.Unknown : value > 0 ? SwitchStates.On : SwitchStates.Off
+      [LightAttributes.State]: value == null || value == 0 ? SwitchStates.Off : SwitchStates.On
     };
   }
 
   static matterOnOffToUcSwitchState(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: boolean | undefined
   ): { [key: string]: string | number | boolean } {
     return {
-      [SwitchAttributes.State]:
-        value === true ? SwitchStates.On : value === false ? SwitchStates.Off : SwitchStates.Unknown
+      [LightAttributes.State]: value ? SwitchStates.On : SwitchStates.Off
     };
   }
 
   static matterOnOffToUcLightState(
-    endpoint: Endpoint,
+    _endpoint: Endpoint,
     value: boolean | undefined
   ): { [key: string]: string | number | boolean } {
     return {
-      [LightAttributes.State]: value === true ? LightStates.On : value === false ? LightStates.Off : LightStates.Unknown
+      [LightAttributes.State]: value ? LightStates.On : LightStates.Off
     };
   }
 
-  static matterTemperatureToUc(endpoint: Endpoint, value: any): { [key: string]: string | number | boolean } {
+  static matterTemperatureToUc(_endpoint: Endpoint, value: any): { [key: string]: string | number | boolean } {
     if (driverConfig.get().temperatureUnit == TemperatureUnit.Fahrenheit) {
       return { [SensorAttributes.Value]: value * 0.018 + 32 };
     } else {
@@ -127,67 +104,16 @@ export class MatterValueConverters {
     }
   }
 
-  static matterHumidityToUc(endpoint: Endpoint, value: any): { [key: string]: string | number | boolean } {
+  static matterHumidityToUc(_endpoint: Endpoint, value: any): { [key: string]: string | number | boolean } {
     return { [SensorAttributes.Value]: value * 0.01 };
-  }
-
-  private static matterWindowCoveringPositionsToUcCoverState(
-    currentPosition: number | null | undefined,
-    targetPosition: number | null | undefined
-  ) {
-    var coverState = CoverStates.Unknown;
-
-    if (MatterHelpers.isNumber(currentPosition) && MatterHelpers.isNumber(targetPosition)) {
-      log.debug(
-        "Updating Matter window covering state: currentPosition: %s targetPosition: %s",
-        currentPosition,
-        targetPosition
-      );
-
-      if (currentPosition < targetPosition) {
-        coverState = CoverStates.Opening;
-      } else if (currentPosition > targetPosition) {
-        coverState = CoverStates.Closing;
-      } else if (currentPosition == targetPosition && currentPosition == 100) {
-        coverState = CoverStates.Closed;
-      } else {
-        coverState = CoverStates.Open;
-      }
-    }
-
-    return coverState;
-  }
-
-  static matterWindowCoveringToUcCoverState(
-    endpoint: Endpoint,
-    targetPosition: number | undefined
-  ): { [key: string]: string | number | boolean } {
-    var coverState = CoverStates.Unknown;
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
-    const coverPercentInverted = driverConfig.get().coverPercentInverted;
-
-    if (MatterHelpers.isNumber(targetPosition) && coverPercentInverted) {
-      targetPosition = 10000 - targetPosition;
-    }
-
-    if (windowCoveringClient) {
-      let currentPosition = windowCoveringClient.getCurrentPositionLiftPercent100thsAttributeFromCache();
-
-      if (MatterHelpers.isNumber(currentPosition) && coverPercentInverted) {
-        currentPosition = 10000 - currentPosition;
-      }
-
-      coverState = MatterValueConverters.matterWindowCoveringPositionsToUcCoverState(currentPosition, targetPosition);
-    }
-
-    return { [CoverAttributes.State]: coverState };
   }
 
   static matterWindowCoveringCurrentPositionToUcCoverPosition(
     endpoint: Endpoint,
     currentPosition: number | undefined
   ): { [key: string]: string | number | boolean } {
-    let attributes: { [key: string]: string | number | boolean } = {};
+    const attributes: { [key: string]: string | number | boolean } = {};
+
     const coverPercentInverted = driverConfig.get().coverPercentInverted;
 
     if (MatterHelpers.isNumber(currentPosition)) {
@@ -198,35 +124,66 @@ export class MatterValueConverters {
       attributes[CoverAttributes.Position] = currentPosition * 0.01;
     }
 
-    const windowCoveringClient = endpoint.getClusterClient(WindowCovering);
-
-    if (windowCoveringClient) {
-      let targetPosition = windowCoveringClient.getTargetPositionLiftPercent100thsAttributeFromCache();
+    if (endpoint.behaviors.has(WindowCoveringClient)) {
+      let targetPosition = endpoint.stateOf(WindowCoveringClient).targetPositionLiftPercent100ths;
 
       if (MatterHelpers.isNumber(targetPosition) && coverPercentInverted) {
         targetPosition = 10000 - targetPosition;
       }
 
-      attributes[CoverAttributes.State] = MatterValueConverters.matterWindowCoveringPositionsToUcCoverState(
-        currentPosition,
-        targetPosition
-      );
+      if (MatterHelpers.isNumber(targetPosition)) {
+        attributes[CoverAttributes.Position] = targetPosition * 0.01;
+      }
+    }
+
+    if (!attributes[CoverAttributes.Position]) {
+      log.debug("Cover position unknown, setting to 0");
+      attributes[CoverAttributes.Position] = 0;
     }
 
     return attributes;
   }
 
-  static matterWindowCoveringCurrentPositionTiltToUcCoverTiltPosition(
+  static matterWindowCoveringToUcCoverState(
     endpoint: Endpoint,
+    targetPosition: number | undefined
+  ): { [key: string]: string | number | boolean } {
+    let coverState = CoverStates.Unknown;
+    const coverPercentInverted = driverConfig.get().coverPercentInverted;
+
+    if (MatterHelpers.isNumber(targetPosition) && coverPercentInverted) {
+      targetPosition = 10000 - targetPosition;
+    }
+
+    if (endpoint.behaviors.has(WindowCoveringClient)) {
+      let currentPosition = endpoint.stateOf(WindowCoveringClient).currentPositionLiftPercent100ths;
+
+      if (MatterHelpers.isNumber(currentPosition) && coverPercentInverted) {
+        currentPosition = 10000 - currentPosition;
+      }
+
+      if (MatterHelpers.isNumber(targetPosition) && MatterHelpers.isNumber(currentPosition)) {
+        if (targetPosition < currentPosition) {
+          coverState = CoverStates.Closing;
+        } else if (targetPosition > currentPosition) {
+          coverState = CoverStates.Opening;
+        } else {
+          coverState = targetPosition == 0 ? CoverStates.Closed : CoverStates.Open;
+        }
+      }
+    }
+
+    return { [CoverAttributes.State]: coverState };
+  }
+
+  static matterWindowCoveringCurrentPositionTiltToUcCoverTiltPosition(
+    _endpoint: Endpoint,
     currentTiltPosition: number | undefined
   ): { [key: string]: string | number | boolean } {
     if (MatterHelpers.isNumber(currentTiltPosition)) {
       return { [CoverAttributes.TiltPosition]: currentTiltPosition * 0.01 };
     }
-    return {};
-  }
 
-  static ucCoverPositionToMatterWindowCoveringPosition(value: number) {
-    return value * 100;
+    return { [CoverAttributes.TiltPosition]: 0 };
   }
 }

@@ -1,18 +1,27 @@
 import * as uc from "@unfoldedcircle/integration-api";
-import { ColorControl, LevelControl, OnOff } from "@matter/main/clusters";
-import { Endpoint } from "@project-chip/matter.js/device";
+import { Endpoint } from "@matter/node";
+import { OnOffClient } from "@matter/node/behaviors/on-off";
+import { LevelControlClient } from "@matter/node/behaviors/level-control";
+import { ColorControlClient } from "@matter/node/behaviors/color-control";
 
 import log from "../loggers.js";
 import { MatterValueConverters } from "../matter/converters.js";
 import { BaseDevice, DeviceInfo, GetEntityAttributeOptions } from "./base_device.js";
+import { MatterBridge } from "../matter/controller.js";
 import { driverConfig } from "../config.js";
 import { ClosedError } from "@matter/main";
 
 export class LightDevice extends BaseDevice {
-  addAttributeListeners() {
-    if (this.hasAttributeListeners()) return;
+  constructor(endpoint: Endpoint, matterBridge: MatterBridge, deviceInfo: DeviceInfo, entity: uc.Entity) {
+    super(endpoint, matterBridge, deviceInfo, entity);
+  }
 
-    log.debug(`addAttributeListeners for entity id: ${this.deviceInfo.entityId}`);
+  addAttributeListeners() {
+    this.addAttributeListener(uc.LightAttributes.State);
+
+    if (this.hasAttribute(uc.LightAttributes.Brightness)) {
+      this.addAttributeListener(uc.LightAttributes.Brightness);
+    }
 
     if (this.hasAttribute(uc.LightAttributes.Hue)) {
       this.addAttributeListener(uc.LightAttributes.Hue);
@@ -25,28 +34,20 @@ export class LightDevice extends BaseDevice {
     if (this.hasAttribute(uc.LightAttributes.ColorTemperature)) {
       this.addAttributeListener(uc.LightAttributes.ColorTemperature);
     }
-
-    if (this.hasAttribute(uc.LightAttributes.Brightness)) {
-      this.addAttributeListener(uc.LightAttributes.Brightness);
-    }
-
-    if (this.hasAttribute(uc.LightAttributes.State)) {
-      this.addAttributeListener(uc.LightAttributes.State);
-    }
   }
 
   static async initUcEntity(endpoint: Endpoint, deviceInfo: DeviceInfo): Promise<uc.Entity> {
     var lightFeatures: uc.LightFeatures[] = [];
 
-    if (endpoint.hasClusterClient(ColorControl)) {
+    if (endpoint.behaviors.has(ColorControlClient)) {
       lightFeatures.push(uc.LightFeatures.Color, uc.LightFeatures.ColorTemperature);
     }
 
-    if (endpoint.hasClusterClient(LevelControl)) {
+    if (endpoint.behaviors.has(LevelControlClient)) {
       lightFeatures.push(uc.LightFeatures.Dim);
     }
 
-    if (endpoint.hasClusterClient(OnOff)) {
+    if (endpoint.behaviors.has(OnOffClient)) {
       lightFeatures.push(uc.LightFeatures.OnOff, uc.LightFeatures.Toggle);
     }
 
@@ -117,29 +118,29 @@ export class LightDevice extends BaseDevice {
     log.debug("Got %s command request: %s params: %s", entity.id, cmdId, params);
 
     try {
-      const onOffClient = this.endpoint.getClusterClient(OnOff);
-      const levelControlClient = this.endpoint.getClusterClient(LevelControl);
-      const colorControlClient = this.endpoint.getClusterClient(ColorControl);
+      const hasOnOff = this.endpoint.behaviors.has(OnOffClient);
+      const hasLevelControl = this.endpoint.behaviors.has(LevelControlClient);
+      const hasColorControl = this.endpoint.behaviors.has(ColorControlClient);
 
       switch (cmdId) {
         case uc.LightCommands.Toggle:
-          if (!onOffClient) return uc.StatusCodes.NotFound;
-          await onOffClient.toggle();
+          if (!hasOnOff) return uc.StatusCodes.NotFound;
+          await this.endpoint.commandsOf(OnOffClient).toggle();
           break;
         case uc.LightCommands.On:
-          if (onOffClient && params?.brightness == 0) {
+          if (hasOnOff && params?.brightness == 0) {
             // We have a brightness parameter of 0, turn the light off.
-            await onOffClient.off();
+            await this.endpoint.commandsOf(OnOffClient).off();
             break;
           }
 
-          if (params?.brightness && onOffClient?.getOnOffAttributeFromCache() == false) {
-            // We have a brightness parameter and the light is currently off. Turn  the light on first.
-            await onOffClient.on();
+          if (params?.brightness && hasOnOff && this.endpoint.stateOf(OnOffClient).onOff == false) {
+            // We have a brightness parameter and the light is currently off. Turn the light on first.
+            await this.endpoint.commandsOf(OnOffClient).on();
           }
 
-          if (levelControlClient && typeof params?.brightness === "number") {
-            await levelControlClient.moveToLevel({
+          if (hasLevelControl && typeof params?.brightness === "number") {
+            await this.endpoint.commandsOf(LevelControlClient).moveToLevel({
               level: MatterValueConverters.ucLevelToMatter(params.brightness),
               transitionTime: driverConfig.get().lightTransitionTime,
               optionsMask: {},
@@ -148,8 +149,8 @@ export class LightDevice extends BaseDevice {
             break;
           }
 
-          if (colorControlClient && typeof params?.color_temperature === "number") {
-            await colorControlClient.moveToColorTemperature({
+          if (hasColorControl && typeof params?.color_temperature === "number") {
+            await this.endpoint.commandsOf(ColorControlClient).moveToColorTemperature({
               colorTemperatureMireds: MatterValueConverters.ucPercentToMired(params.color_temperature),
               transitionTime: driverConfig.get().lightTransitionTime,
               optionsMask: {},
@@ -158,8 +159,8 @@ export class LightDevice extends BaseDevice {
             break;
           }
 
-          if (colorControlClient && typeof params?.hue === "number" && typeof params?.saturation === "number") {
-            await colorControlClient.moveToHueAndSaturation({
+          if (hasColorControl && typeof params?.hue === "number" && typeof params?.saturation === "number") {
+            await this.endpoint.commandsOf(ColorControlClient).moveToHueAndSaturation({
               hue: MatterValueConverters.ucHueToMatter(params.hue),
               saturation: MatterValueConverters.ucSaturationToMatter(params.saturation),
               transitionTime: driverConfig.get().lightTransitionTime,
@@ -168,25 +169,24 @@ export class LightDevice extends BaseDevice {
             });
             break;
           } else {
-            if (!onOffClient) return uc.StatusCodes.NotFound;
-            await onOffClient.on();
+            if (!hasOnOff) return uc.StatusCodes.NotFound;
+            await this.endpoint.commandsOf(OnOffClient).on();
             break;
           }
         case uc.LightCommands.Off:
-          if (!onOffClient) return uc.StatusCodes.NotFound;
-          await onOffClient.off();
+          if (!hasOnOff) return uc.StatusCodes.NotFound;
+          await this.endpoint.commandsOf(OnOffClient).off();
           break;
         default:
           return uc.StatusCodes.NotImplemented;
       }
     } catch (e) {
-      log.error(e);
-
       if (e instanceof ClosedError) {
-        log.error("entityCmdHandler ClosedError " + e.cause);
+        log.warn(`Entity ${entity.id} is closed`);
+        return uc.StatusCodes.ServiceUnavailable;
       }
-
-      return uc.StatusCodes.ServiceUnavailable;
+      log.error(e);
+      return uc.StatusCodes.ServerError;
     }
 
     return uc.StatusCodes.Ok;

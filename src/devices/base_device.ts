@@ -1,6 +1,7 @@
 import * as uc from "@unfoldedcircle/integration-api";
-import { BridgedDeviceBasicInformation } from "@matter/main/clusters";
-import { Endpoint } from "@project-chip/matter.js/device";
+import { Endpoint } from "@matter/node";
+import { BridgedDeviceBasicInformationClient } from "@matter/node/behaviors/bridged-device-basic-information";
+import { DescriptorClient } from "@matter/node/behaviors/descriptor";
 
 import log from "../loggers.js";
 import { driver } from "../globals.js";
@@ -47,6 +48,14 @@ export abstract class BaseDevice {
     this.attributeListenersMap = new Map<string, AttributeListener>();
   }
 
+  /**
+   * The numeric device type for this endpoint, read from the Descriptor cluster's deviceTypeList.
+   */
+  get endpointDeviceType(): number {
+    const descriptorState = this.endpoint.maybeStateOf(DescriptorClient);
+    return (descriptorState?.deviceTypeList[0]?.deviceType ?? 0) as number;
+  }
+
   public abstract addAttributeListeners(): void;
   abstract getEntityAttributes(
     options: GetEntityAttributeOptions
@@ -59,15 +68,18 @@ export abstract class BaseDevice {
   ): ReturnType<uc.CommandHandler>;
 
   public static async initDeviceInfo(endpoint: Endpoint, matterBridge: MatterBridge): Promise<DeviceInfo> {
-    const bridgedDeviceBasicInformationClient =
-      endpoint.getClusterClient(BridgedDeviceBasicInformation) ??
-      (() => {
-        throw new Error("No BridgedDeviceBasicInformation.");
-      })();
+    if (!endpoint.behaviors.has(BridgedDeviceBasicInformationClient)) {
+      throw new Error("No BridgedDeviceBasicInformation.");
+    }
 
-    const endpointProductName = await bridgedDeviceBasicInformationClient.getProductNameAttribute();
-    const endpointLabel = await bridgedDeviceBasicInformationClient.getNodeLabelAttribute();
-    const endpointSerialNumber = await bridgedDeviceBasicInformationClient.getSerialNumberAttribute();
+    let bdbiState = endpoint.maybeStateOf(BridgedDeviceBasicInformationClient);
+    if (!bdbiState) {
+      bdbiState = await endpoint.getStateOf(BridgedDeviceBasicInformationClient);
+    }
+
+    const endpointProductName = bdbiState.productName ?? undefined;
+    const endpointLabel = bdbiState.nodeLabel ?? undefined;
+    const endpointSerialNumber = bdbiState.serialNumber ?? undefined;
     let entityIdentifier: string;
     let entityLabel: string;
 
@@ -107,7 +119,7 @@ export abstract class BaseDevice {
     const matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(
       this.entity.entity_type,
       entityAttribute,
-      this.endpoint.deviceType
+      this.endpointDeviceType
     );
     if (!matterToUcStateConverter) return;
 
@@ -144,17 +156,19 @@ export abstract class BaseDevice {
     let matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(
       this.entity.entity_type,
       entityAttribute,
-      this.endpoint.deviceType
+      this.endpointDeviceType
     );
     let addMatterAttributeListener = MatterHelpers.getAddMatterAttributeListener(
       this.entity.entity_type,
       entityAttribute,
-      this.endpoint
+      this.endpoint,
+      this.endpointDeviceType
     );
     let removeMatterAttributeListener = MatterHelpers.getRemoveMatterAttributeListener(
       this.entity.entity_type,
       entityAttribute,
-      this.endpoint
+      this.endpoint,
+      this.endpointDeviceType
     );
 
     if (!matterToUcStateConverter || !addMatterAttributeListener || !removeMatterAttributeListener) {
@@ -195,17 +209,23 @@ export abstract class BaseDevice {
     options: GetEntityAttributeOptions,
     entityAttribute: string
   ): Promise<string | number | boolean | string[] | undefined> {
-    let getMatterAttribute = MatterHelpers.getMatterAttribute(this.entity.entity_type, entityAttribute, this.endpoint);
+    let getMatterAttribute = MatterHelpers.getMatterAttribute(
+      this.entity.entity_type,
+      entityAttribute,
+      this.endpoint,
+      this.endpointDeviceType
+    );
     let getMatterAttributeFromCache = MatterHelpers.getMatterAttributeFromCache(
       this.entity.entity_type,
       entityAttribute,
-      this.endpoint
+      this.endpoint,
+      this.endpointDeviceType
     );
 
     let matterToUcStateConverter = MatterHelpers.getMatterToUcStateConverter(
       this.entity.entity_type,
       entityAttribute,
-      this.endpoint.deviceType
+      this.endpointDeviceType
     );
 
     if (!getMatterAttribute || !getMatterAttributeFromCache || !matterToUcStateConverter) return;
@@ -226,7 +246,7 @@ export abstract class BaseDevice {
         );
       } else if (options.onlyReturnChangedAttributes && !valueChanged) {
         log.debug(
-          `${MatterHelpers.getReadableEntityAttributeName(entityAttribute, true)} value has not changed on entity ${this.deviceInfo.entityId}.`
+          `${MatterHelpers.getReadableEntityAttributeName(entityAttribute, false)} value has not changed on entity ${this.deviceInfo.entityId}.`
         );
         return undefined;
       } else {
